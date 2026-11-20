@@ -2,11 +2,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { asset, useReducedMotion } from './demo-utils';
 import { feedbackDuration, flowRegions, paperWidth, paperHeight, PipelineFlow, type FlowRegion } from './PipelineFlow';
 import art from './pipeline-art.json';
-import { Icon } from './Icons';
+import { useNearby } from './web-media';
 import './pipeline.css';
 
 export function InferenceExplainer() {
   const board = useRef<HTMLDivElement>(null);
+  const nearby = useNearby(board);
   const atlasId = useId();
   const reduced = useReducedMotion();
   const [finished, setFinished] = useState(reduced);
@@ -50,9 +51,11 @@ export function InferenceExplainer() {
   const still = finished || reduced;
   return <figure className="pipeline-figure">
     <div ref={board} className="pipeline-board" data-complete={still}>
-      <img className="pipeline-original" src={asset('research/framework.webp')} width={art.width} height={art.height}
-        alt="EponaX architecture from the paper. Camera history and navigation enter the shared backbone from below. Future RGB, depth and semantic supervision are above. On the right, TrajLoop refines the trajectory latents and the frozen TrajAE decoder produces the future trajectory."
-        loading="lazy" onLoad={() => setOriginalReady(true)} />
+      <a className="pipeline-original-link" href={asset('research/framework.webp')} target="_blank" rel="noreferrer" aria-label="Open the full-size pipeline figure">
+        <img className="pipeline-original" src={nearby ? asset('research/framework.webp') : undefined} width={art.width} height={art.height}
+          alt="EponaX architecture from the paper. Camera history and navigation enter the shared backbone from below. Future RGB, depth and semantic supervision are above. On the right, TrajLoop refines the trajectory latents and the frozen TrajAE decoder produces the future trajectory."
+          loading="lazy" onLoad={() => setOriginalReady(true)} />
+      </a>
       {!still && <svg className="pipeline-reveal" viewBox={'0 0 ' + art.width + ' ' + art.height}
         aria-hidden="true" data-ready={atlasReady && originalReady} data-playing={visible && atlasReady && originalReady}>
         {entered && <>
@@ -85,8 +88,5 @@ export function InferenceExplainer() {
           onClick={() => trace(id)} />)}
       </>}
     </div>
-    <figcaption className="pipeline-caption">
-      <a href={asset('research/framework.webp')} target="_blank" rel="noreferrer" aria-label="Open the full-size pipeline figure"><Icon name="expand" size={14}/> Full-size figure</a>
-    </figcaption>
   </figure>;
 }

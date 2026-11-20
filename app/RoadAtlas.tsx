@@ -1,5 +1,6 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { asset } from './demo-utils';
+import { useNearby } from './web-media';
 import { Icon } from './Icons';
 
 type Point = [number, number];
@@ -8,7 +9,7 @@ type Route = {
   trafficLights: number; interventions: number; points: Point[];
 };
 type MapRoute = Route & { path: string; start: Point };
-const routeColors = ['#2460d0', '#b23c86', '#b45a19', '#087d6e'];
+const routeColors = ['var(--blue)', 'var(--violet)', '#277790', '#3d438b'];
 
 // pudong-streets.webp uses this north-up Web Mercator viewport (logical pixels).
 const viewport = { width: 1000, height: 380, lon: 121.644, lat: 31.2224, pixelsPerDegree: 2340 };
@@ -60,20 +61,23 @@ function RouteMap({ routes, active, select }: { routes: MapRoute[]; active: numb
 }
 
 export function RoadAtlas() {
+  const section = useRef<HTMLElement>(null);
+  const nearby = useNearby(section);
   const [routes, setRoutes] = useState<MapRoute[]>([]);
   const [failed, setFailed] = useState(false);
   const [active, setActive] = useState(0);
   useEffect(() => {
+    if (!nearby) return;
     const controller = new AbortController();
     fetch(asset('demo/routes.json'), { signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error(); return response.json(); })
       .then((data: Route[]) => setRoutes(data.map(prepareRoute)))
       .catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => controller.abort();
-  }, []);
+  }, [nearby]);
   const route = routes[active];
 
-  return <section className="road-study story-section" id="roads" aria-labelledby="road-title">
+  return <section ref={section} className="road-study story-section" id="roads" aria-labelledby="road-title">
     <div className="story-wrap">
       <header className="story-heading road-intro" data-reveal>
         <div><h2 id="road-title">Testing on Shanghai’s roads</h2>
@@ -82,7 +86,7 @@ export function RoadAtlas() {
       </header>
       <div className="road-evaluation">
         <div className="route-visual">
-          <RouteMap routes={routes} active={active} select={setActive}/>
+          {nearby ? <RouteMap routes={routes} active={active} select={setActive}/> : <div className="road-map-frame"/>}
           <div className="route-tabs" role="group" aria-label="Select evaluation route">
             {routes.map((r, i) => <button key={r.id} type="button" aria-pressed={active === i} onClick={() => setActive(i)}
               style={{ '--route-color': routeColors[i] } as CSSProperties}>
@@ -90,9 +94,9 @@ export function RoadAtlas() {
             </button>)}
           </div>
         </div>
-        <div className="route-detail" aria-live="polite">
+        <div className="route-detail" aria-live="polite" style={{ '--route-color': routeColors[active] } as CSSProperties}>
           {route ? <>
-            <span className="route-id" style={{ color: routeColors[active] }}>{route.id}</span>
+            <span className="route-id">{route.id}</span>
             <h3>{route.name}</h3>
             <dl>
               <div><dt>One loop</dt><dd>{route.distance.toFixed(2)}<span> km</span></dd></div>

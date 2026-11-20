@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { DrivingReplay } from './DrivingReplay';
 import { Icon } from './Icons';
 import { asset, clock, type Scene } from './demo-utils';
+import { useNearby } from './web-media';
 import manifest from './demo-manifest.json';
 
 const scenesById = new Map((manifest as Scene[]).map(scene => [scene.id, scene]));
@@ -36,6 +37,8 @@ const groups = [
 }));
 
 function DriveRow({ group }: { group: typeof groups[number] }) {
+  const row = useRef<HTMLElement>(null);
+  const nearby = useNearby(row);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState(group.pages[0][0]);
   const [browse, setBrowse] = useState(false);
@@ -49,7 +52,7 @@ function DriveRow({ group }: { group: typeof groups[number] }) {
     setBrowse(false);
   }
 
-  return <section className="drive-workspace" aria-labelledby={'drive-' + group.id}>
+  return <section ref={row} className="drive-workspace" aria-labelledby={'drive-' + group.id}>
     <div className="drive-picker">
       <div className="picker-heading">
         <h3 id={'drive-' + group.id}>{group.title}</h3>
@@ -64,7 +67,7 @@ function DriveRow({ group }: { group: typeof groups[number] }) {
             <button type="button" className="film-card" key={scene.id} onClick={() => selectScene(scene)}
               aria-label={`Play ${scene.title}`} aria-pressed={scene.id === selected.id}>
               <span className="film-image">
-                <img src={asset(scene.poster)} loading="lazy" width="960" height="540" alt="" />
+                <img src={nearby ? asset(scene.poster) : undefined} decoding="async" loading="lazy" width="960" height="540" alt="" />
                 {scene.id === selected.id && <span className="film-check"><Icon name="check" size={14}/></span>}
                 <span className="film-time">{clock(scene.duration)}</span>
               </span>
@@ -81,7 +84,7 @@ function DriveRow({ group }: { group: typeof groups[number] }) {
         </div>
       </div>
     </div>
-    <div className="drive-screen"><DrivingReplay key={selected.id} scene={selected}/></div>
+    <div className="drive-screen"><DrivingReplay key={selected.id} scene={selected} nearby={nearby}/></div>
   </section>;
 }
 

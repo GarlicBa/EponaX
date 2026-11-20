@@ -1,44 +1,59 @@
-import { useState } from 'react';
+import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useNearby } from './web-media';
 import { asset } from './demo-utils';
-import { Icon } from './Icons';
 import { InferenceExplainer } from './InferenceExplainer';
 
 const moduleFigures = [
-  { file: 'mvtok', title: 'Multi-view tokenizer', width: 2600, height: 694,
-    text: 'The front camera retains a detailed view of the road ahead. For the five surround cameras, separate branches preserve semantic features and fine visual detail, then combine them into 640 tokens.' },
   { file: 'nav-encoder', title: 'Navigation encoder', width: 2600, height: 790,
     text: 'Three branches encode waypoints, road links with maneuver and lane attributes, and speed limits. Together they produce nine route tokens per frame.' },
   { file: 'nav-alignment', title: 'Navigation alignment', width: 2600, height: 949,
     text: 'During pretraining, a frozen language model predicts navigation instructions from the route tokens. A separate reconstruction objective preserves the original route fields. The encoder and projector are then frozen.' },
-  { file: 'world-heads', title: 'Future prediction heads', width: 2386, height: 572,
-    text: 'Three training heads predict future appearance, depth and semantics at a sampled horizon of one to twenty seconds. Their supervision shapes the scene representation used by the planner.' },
-  { file: 'trajloop', title: 'TrajLoop', width: 1318, height: 2000,
-    text: 'Over five refinement steps, each interaction block updates its local condition as the trajectory estimate changes. The backbone features stay fixed while TrajLoop refines the latent for the trajectory decoder.' },
+  { file: 'mvtok', title: 'Multi-view tokenizer', width: 2600, height: 694,
+    text: 'The front camera retains a detailed view of the road ahead. For the five surround cameras, separate branches preserve semantic features and fine visual detail, then combine them into 640 tokens.' },
 ];
 
 function ModuleDetails() {
-  const [selected, setSelected] = useState<typeof moduleFigures[number] | null>(null);
-  return <section className="architecture-modules" aria-labelledby="architecture-modules-title">
-    <h3 id="architecture-modules-title">Module details</h3>
-    <div className="module-choices" role="group" aria-labelledby="architecture-modules-title">
-      {moduleFigures.map(module => <button type="button" key={module.file}
-        aria-controls="architecture-detail" aria-expanded={selected === module}
-        onClick={() => setSelected(selected === module ? null : module)}>
-        {module.title}<Icon name={selected === module ? 'minus' : 'plus'} size={14}/>
+  const [active, setActive] = useState(0);
+  const section = useRef<HTMLElement>(null);
+  const nearby = useNearby(section);
+
+  function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const count = moduleFigures.length;
+    let next: number;
+    switch (event.key) {
+      case 'ArrowRight': next = (index + 1) % count; break;
+      case 'ArrowLeft': next = (index + count - 1) % count; break;
+      case 'Home': next = 0; break;
+      case 'End': next = count - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    setActive(next);
+    section.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+  }
+
+  return <section ref={section} className="architecture-modules" aria-label="Architecture modules">
+    <div className="module-choices" role="tablist" aria-label="Select an architecture module"
+      style={{ '--tab-offset': active * 100 + '%' } as CSSProperties}>
+      {moduleFigures.map((module, index) => <button type="button" key={module.file} role="tab"
+        id={'tab-' + module.file} aria-controls={'detail-' + module.file} aria-selected={active === index}
+        tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={e => navigate(e, index)}>
+        {module.title}
       </button>)}
     </div>
-    <div id="architecture-detail" hidden={!selected}>
-      {selected && <figure className="module-detail" key={selected.file} data-portrait={selected.height > selected.width}>
-        <figcaption>
-          <h4>{selected.title}</h4><p>{selected.text}</p>
-        </figcaption>
-        <a className="module-image" href={asset('research/' + selected.file + '.webp')} target="_blank" rel="noreferrer"
-          aria-label={'Open the full-size ' + selected.title + ' figure'}>
-          <img src={asset('research/' + selected.file + '.webp')} width={selected.width} height={selected.height}
-            alt={selected.title + ' diagram from the EponaX paper'}/>
-          <span><Icon name="expand" size={14}/> Full-size figure</span>
-        </a>
-      </figure>}
+    <div className="module-panels">
+      {moduleFigures.map((module, index) => <div key={module.file} role="tabpanel"
+        id={'detail-' + module.file} aria-labelledby={'tab-' + module.file}
+        aria-hidden={active !== index} inert={active !== index} className="module-panel">
+        <figure className="module-detail">
+          <a className="module-image" href={asset('research/' + module.file + '.webp')} target="_blank" rel="noreferrer"
+            aria-label={'Open the full-size ' + module.title + ' figure'}>
+            <img src={nearby ? asset('research/' + module.file + '.webp') : undefined}
+              width={module.width} height={module.height} alt={module.title + ' diagram from the EponaX paper'}/>
+          </a>
+          <figcaption>{module.text}</figcaption>
+        </figure>
+      </div>)}
     </div>
   </section>;
 }

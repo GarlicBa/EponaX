@@ -81,19 +81,19 @@ function RoutePreview({ frame }: { frame?: Frame }) {
   }
   return <div className="nav-map">
     {points ? <svg viewBox="0 0 240 194" role="img" aria-label="Route ahead from the recorded navigation waypoints">
-      <defs><pattern id={id} width="45" height="45" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#c6d4cd"/></pattern></defs>
+      <defs><pattern id={id} width="45" height="45" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#cbd6e6"/></pattern></defs>
       <rect width="240" height="194" fill={`url(#${id})`}/>
       <g fill="none" strokeLinejoin="round" strokeLinecap="round">
-        <polyline points={points} stroke="#c3d4ca" strokeWidth="17"/>
+        <polyline points={points} stroke="#c9d6ea" strokeWidth="17"/>
         <polyline points={points} stroke="#fff" strokeWidth="14"/>
-        <polyline points={points} stroke="#29926d" strokeWidth="8"/>
+        <polyline points={points} stroke="var(--nav-route)" strokeWidth="8"/>
       </g>
       {marks.map(mark => <g key={mark.meters} transform={`translate(${mark.x} ${mark.y})`}>
-        <circle r="3" fill="white" stroke="#207654" strokeWidth="1.6"/>
-        <text x="7" y="4" fill="#325344" stroke="#eaf0e9" strokeWidth="3" paintOrder="stroke" fontSize="11">{mark.meters} m</text>
+        <circle r="3" fill="white" stroke="var(--nav-route)" strokeWidth="1.6"/>
+        <text x="7" y="4" fill="var(--nav-ink)" stroke="#edf2f9" strokeWidth="3" paintOrder="stroke" fontSize="11">{mark.meters} m</text>
       </g>)}
-      <g transform={`translate(${px(0)} ${py(0)})`}><path d="M0-10l7 17-7-3-7 3z" fill="#16655e" stroke="white" strokeWidth="2"/></g>
-      <text x="8" y="188" fontSize="10" fill="#425b4f">Local waypoints · {Math.round(length)} m ahead</text>
+      <g transform={`translate(${px(0)} ${py(0)})`}><path d="M0-10l7 17-7-3-7 3z" fill="#514387" stroke="white" strokeWidth="2"/></g>
+      <text x="8" y="188" fontSize="10" fill="var(--nav-secondary)">Local waypoints · {Math.round(length)} m ahead</text>
     </svg> : <span className="nav-map-empty">{frame ? 'Route preview unavailable' : 'Loading navigation…'}</span>}
     {frame?.limit != null && frame.limit > 0 && <span className="nav-limit" aria-label={`Speed limit ${frame.limit} km/h`} title="Speed limit (km/h)">{Math.round(frame.limit)}</span>}
   </div>;

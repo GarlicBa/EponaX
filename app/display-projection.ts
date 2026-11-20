@@ -1,5 +1,7 @@
 import type { Frame } from './demo-utils';
 
+import { smoothingRadius } from './replay-format';
+
 type Point = [number, number];
 const samples = 41;
 const maxShift = 10; // Pixels in the 960 × 540 front view.
@@ -35,7 +37,7 @@ export function displayProjection(frames: Frame[], index: number): Point[] {
   const sum = center.map(() => [0, 0]);
   let weightSum = 6;
   for (const direction of [-1, 1]) {
-    for (let step = 1; step <= 2; step++) {
+    for (let step = 1; step <= smoothingRadius; step++) {
       const neighbor = frames[index + direction * step];
       if (!neighbor) break;
       const path = samplePath(neighbor.projection);

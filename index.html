@@ -10,6 +10,67 @@
     <link rel="icon" href="./eponax-logo.png?v=2" type="image/png" />
   </head>
   <body>
+    <a class="skip-link" href="#drive">Skip to driving recordings</a>
+    <!-- paper cover -->
+    <script>
+      (() => {
+        const wall = document.querySelector('.hero-wall');
+        const cover = document.querySelector('#top > picture');
+        const poster = cover.querySelector('img');
+        const portrait = matchMedia('(orientation: portrait)');
+        const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+        let visible = false;
+        let playhead = 0;
+
+        function detach() {
+          if (!wall.hasAttribute('src')) return;
+          if (wall.readyState >= HTMLMediaElement.HAVE_METADATA) playhead = wall.currentTime;
+          wall.dataset.ready = 'false';
+          wall.pause();
+          wall.removeAttribute('src');
+          wall.load();
+        }
+
+        function update() {
+          if (!visible || document.hidden) { detach(); return; }
+          if (!poster.hasAttribute('src')) {
+            cover.querySelector('source').srcset = wall.dataset.portrait + '.jpg';
+            poster.src = wall.dataset.landscape + '.jpg';
+          }
+          if (reduced.matches) { detach(); return; }
+          const film = portrait.matches ? wall.dataset.portrait : wall.dataset.landscape;
+          if (wall.getAttribute('src') !== film + '.mp4') {
+            detach();
+            wall.muted = true;
+            wall.src = film + '.mp4';
+          }
+          if (wall.paused) wall.play().catch(() => {});
+        }
+
+        wall.addEventListener('loadedmetadata', () => {
+          if (playhead > 0 && playhead < wall.duration) wall.currentTime = playhead;
+        });
+        wall.addEventListener('playing', () => {
+          if (wall.hasAttribute('src')) wall.dataset.ready = 'true';
+        });
+        wall.addEventListener('error', () => { wall.dataset.ready = 'false'; });
+        portrait.addEventListener('change', update);
+        reduced.addEventListener('change', update);
+        document.addEventListener('visibilitychange', update);
+
+        const observer = new IntersectionObserver(([entry]) => {
+          visible = entry.isIntersecting && entry.intersectionRatio >= .05;
+          update();
+        }, { threshold: [0, .05] });
+        const observe = () => observer.observe(wall);
+        // On a chapter link, wait for the initial scroll before requesting wall media.
+        if (location.hash && location.hash !== '#top') {
+          document.addEventListener('eponax:initial-scroll', observe, { once: true });
+        } else {
+          observe();
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/app/main.tsx"></script>
   </body>

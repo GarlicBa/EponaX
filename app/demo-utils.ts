@@ -1,7 +1,7 @@
 import { useEffect, useState, type RefObject } from 'react';
 
-export type Scene = { id: string; category: 'city' | 'night' | 'highway' | 'glare'; title: string; duration: number; video: string; poster: string; data: string; featured: boolean };
-export type Frame = { t: number; speed: number | null; steering: number | null; road: string; limit: number | null; signal: 'left' | 'right' | null; trajectory: number[][]; navigation: number[][]; projection: number[][]; intervention: boolean; missingViews: string[] };
+export type Scene = { id: string; category: 'city' | 'night' | 'highway' | 'glare'; title: string; duration: number; video: string; poster: string; data: string };
+export type Frame = { speed: number | null; steering: number | null; road: string; limit: number | null; signal: 'left' | 'right' | null; navigation: number[][]; projection: number[][]; intervention: boolean; };
 export type Guidance = {
   frame: number; maneuver?: number; meters?: number; nextRoad?: string;
   lanes?: [number, number][]; tripMeters?: number;
@@ -18,6 +18,18 @@ export function useReducedMotion() {
 }
 export function useVisible(ref: RefObject<Element | null>) {
   const [visible, setVisible] = useState(false);
-  useEffect(() => { const node = ref.current; if (!node) return; const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.05 }); observer.observe(node); return () => observer.disconnect(); }, [ref]);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    let inView = false;
+    const sync = () => setVisible(inView && !document.hidden);
+    const observer = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting && entry.intersectionRatio >= .05;
+      sync();
+    }, { threshold: [0, .05] });
+    observer.observe(node);
+    document.addEventListener('visibilitychange', sync);
+    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', sync); };
+  }, [ref]);
   return visible;
 }

@@ -74,10 +74,10 @@ export function RecordedStreetMap({ scene, map, fix, guide }: {
       <g transform={transform} fill="none" strokeLinecap="round" strokeLinejoin="round">
         {plan?.segments.map(s => <polyline key={s} points={map.segments[s].points.join(' ')} stroke="white" strokeWidth="6.5" vectorEffect="non-scaling-stroke"/>)}
         {plan?.segments.map((s,i) => <polyline key={s} points={map.segments[s].points.join(' ')}
-          stroke={activeIndex >= 0 && i <= activeIndex ? '#869e94' : '#197957'} strokeWidth="3.5" vectorEffect="non-scaling-stroke"/>)}
-        {ahead.length > 1 && <polyline points={ahead.join(' ')} stroke="#197957" strokeWidth="3.5" vectorEffect="non-scaling-stroke"/>}
+          stroke={activeIndex >= 0 && i <= activeIndex ? 'var(--nav-traveled)' : 'var(--nav-route)'} strokeWidth="3.5" vectorEffect="non-scaling-stroke"/>)}
+        {ahead.length > 1 && <polyline points={ahead.join(' ')} stroke="var(--nav-route)" strokeWidth="3.5" vectorEffect="non-scaling-stroke"/>}
       </g>
-      <g className="geo-road-labels" textAnchor="middle" fontSize="10" fill="#56615b" stroke="#faf9f3" strokeWidth="3" paintOrder="stroke">
+      <g className="geo-road-labels" textAnchor="middle" fontSize="10" fill="#536073" stroke="#faf9f3" strokeWidth="3" paintOrder="stroke">
         {view.labels.map(label => {
           if (showTurnLabel && label.name === guide?.nextRoad) return null;
           const [sx, sy] = screen(label.position);
@@ -95,22 +95,22 @@ export function RecordedStreetMap({ scene, map, fix, guide }: {
         </g>;
       })}</g>
       {junction && <g className="geo-junction" transform={`translate(${junction[0]} ${junction[1]})`}>
-        <title>{guide?.nextRoad || 'Next junction'}</title><circle r="6" fill="#fff" stroke="#145d46" strokeWidth="2.5"/>
+        <title>{guide?.nextRoad || 'Next junction'}</title><circle r="6" fill="#fff" stroke="var(--nav-violet)" strokeWidth="2.5"/>
       </g>}
       {showTurnLabel &&
         <text x={junction[0] + (junction[0]<230 ? 10 : -10)} y={junction[1]-8} textAnchor={junction[0]<230 ? 'start' : 'end'}
-          fill="#174c37" stroke="white" strokeWidth="3.8" paintOrder="stroke" fontSize="12" fontWeight="650">{guide.nextRoad}</text>}
+          fill="#4a3974" stroke="white" strokeWidth="3.8" paintOrder="stroke" fontSize="12" fontWeight="650">{guide.nextRoad}</text>}
       {position && <g transform={`translate(${position[0]} ${position[1]})`}>
-        <circle r="13" fill="#2a78d13d"/><path d="M0-11 8 8 0 5-8 8Z" fill="#1e66ad" stroke="white" strokeWidth="2"/>
+        <circle r="13" fill="#6454aa26"/><path d="M0-11 8 8 0 5-8 8Z" fill="#514387" stroke="white" strokeWidth="2"/>
       </g>}
       <g transform="translate(341 20)" aria-label="Compass, true north">
-        <circle r="15" fill="#fff" fillOpacity=".93" stroke="#c5d0c8"/>
+        <circle r="15" fill="#fff" fillOpacity=".93" stroke="var(--nav-rule)"/>
         <g transform={`rotate(${-heading})`}>
-          <path d="M0-12 3.6-3H-3.6Z" fill="#246553"/>
-          <path d="M0 12 2.8 5H-2.8Z" fill="#aebbb4"/>
+          <path d="M0-12 3.6-3H-3.6Z" fill="#56678c"/>
+          <path d="M0 12 2.8 5H-2.8Z" fill="#b5bfce"/>
         </g>
         <circle r="5.5" fill="white"/>
-        <text y="3.2" textAnchor="middle" fontSize="9" fontWeight="700" fill="#294e40">N</text>
+        <text y="3.2" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--nav-ink)">N</text>
       </g>
     </svg>
     <div className="map-scales" role="group" aria-label="Map extent">
