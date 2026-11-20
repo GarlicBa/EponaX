@@ -1,0 +1,240 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties, PointerEvent, RefObject } from 'react';
+import recordings from './demo-manifest.json';
+import { asset, useReducedMotion, useVisible } from './demo-utils';
+import { Icon } from './Icons';
+
+type Pair = { label: string; ids: [string, string] };
+type ScenarioGroup = { id: string; title: string; pairs: Pair[] };
+
+const groups: ScenarioGroup[] = [
+  { id: 'traffic', title: 'Pedestrians & hazards', pairs: [
+    { label: 'Pedestrians', ids: ['city_19', 'night_11'] },
+    { label: 'Busy streets', ids: ['city_07', 'night_06'] },
+    { label: 'Unexpected hazards', ids: ['city_10', 'city_12'] },
+  ] },
+  { id: 'junctions', title: 'Turns & traffic signals', pairs: [
+    { label: 'Left turns', ids: ['city_06', 'night_01'] },
+    { label: 'Complex intersections', ids: ['city_18', 'night_10'] },
+    { label: 'Stopping and yielding', ids: ['city_03', 'city_09'] },
+  ] },
+  { id: 'routes', title: 'Routes & road layout', pairs: [
+    { label: 'Route guidance', ids: ['city_01', 'night_14'] },
+    { label: 'Open and narrow streets', ids: ['city_13', 'night_15'] },
+  ] },
+];
+const byId = new Map(recordings.map(scene => [scene.id, scene]));
+const cameras = ['Front left', 'Front', 'Front right', 'Rear left', 'Rear', 'Rear right'];
+
+// The upper half of each encoded frame contains attention, the lower half RGB.
+// Both sides of a moving divider are drawn from the very same decoded frame.
+function SplitFrame({ video, split, playing }: { video: HTMLVideoElement; split: number; playing: boolean }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const position = useRef(split);
+  const width = video.videoWidth;
+  const height = video.videoHeight / 2;
+  const draw = useCallback(() => {
+    const ctx = canvas.current?.getContext('2d', { alpha: false });
+    if (!ctx || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    const cut = Math.round(width * position.current / 100);
+    ctx.drawImage(video, 0, height, cut, height, 0, 0, cut, height);
+    ctx.drawImage(video, cut, 0, width - cut, height, cut, 0, width - cut, height);
+  }, [video, width, height]);
+
+  useLayoutEffect(() => { position.current = split; draw(); }, [split, draw]);
+  useEffect(() => {
+    if (!playing) return;
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      const frame = () => { draw(); handle = video.requestVideoFrameCallback(frame); };
+      let handle = video.requestVideoFrameCallback(frame);
+      return () => video.cancelVideoFrameCallback(handle);
+    }
+    let lastTime = -1;
+    const frame = () => {
+      if (video.currentTime !== lastTime) { draw(); lastTime = video.currentTime; }
+      handle = requestAnimationFrame(frame);
+    };
+    let handle = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(handle);
+  }, [video, draw, playing]);
+
+  return <canvas ref={canvas} className="attention-split-frame" width={width} height={height} aria-hidden="true"/>;
+}
+
+type ReplayProps = {
+  id: string; split: number; playing: boolean; resumeAt: RefObject<number>;
+  onBlocked: () => void; onError: () => void;
+};
+
+function AttentionVideo({ id, split, playing, resumeAt, onBlocked, onError }: ReplayProps) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const video = ref.current!;
+    video.src = asset('attention/' + id + '.mp4');
+    return () => {
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) resumeAt.current = video.currentTime;
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [id, resumeAt]);
+  useEffect(() => {
+    const video = ref.current!;
+    let active = true;
+    if (playing) {
+      video.play().catch((error: DOMException) => {
+        if (!active || error.name === 'AbortError') return;
+        if (error.name === 'NotAllowedError') onBlocked();
+        else onError();
+      });
+    } else video.pause();
+    return () => { active = false; };
+  }, [id, playing, onBlocked, onError]);
+
+  return <>
+    <video ref={ref} className="attention-film" muted loop playsInline preload="metadata" disablePictureInPicture
+      aria-hidden="true" data-ready={ready} data-rgb={split === 100}
+      onLoadedMetadata={e => {
+        const video = e.currentTarget;
+        if (resumeAt.current > 0 && resumeAt.current < video.duration) video.currentTime = resumeAt.current;
+      }}
+      onLoadedData={() => setReady(true)} onError={e => { if (e.currentTarget.hasAttribute('src')) onError(); }} />
+    {ready && split > 0 && split < 100 && ref.current &&
+      <SplitFrame video={ref.current} split={split} playing={playing}/>}
+  </>;
+}
+
+type GalleryPlayback = { pageVisible: boolean; reduced: boolean; fullscreenElement: Element | null };
+type CardProps = GalleryPlayback & {
+  scene: typeof recordings[number]; split: number; setSplit: (percent: number) => void;
+};
+
+function AttentionCard({ scene, split, setSplit, pageVisible, reduced, fullscreenElement }: CardProps) {
+  const card = useRef<HTMLElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const inView = useVisible(stage);
+  const resumeAt = useRef(0);
+  const [manualPlay, setManualPlay] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState(false);
+  const expanded = fullscreenElement !== null && fullscreenElement === card.current;
+  const visible = pageVisible && inView && (!fullscreenElement || expanded);
+  const playing = manualPlay ?? !reduced;
+  const onBlocked = useCallback(() => setManualPlay(false), []);
+  const onError = useCallback(() => setFailed(true), []);
+  const poster = asset('attention/' + scene.id + '.webp');
+  const playbackLabel = failed ? 'Retry' : playing ? 'Pause' : 'Play';
+  function moveDivider(event: PointerEvent<HTMLInputElement>) {
+    const { left, width } = event.currentTarget.getBoundingClientRect();
+    setSplit(Math.max(0, Math.min(100, Math.round(100 * (event.clientX - left) / width))));
+  }
+
+  return <figure className="attention-card" ref={card} data-recording={scene.id} data-category={scene.category}>
+    <div className="attention-stage" ref={stage} style={{ '--split': split + '%' } as CSSProperties}>
+      <img className="attention-poster" src={poster} alt="" loading="lazy" decoding="async" />
+      {split > 0 && <div className="attention-rgb-poster" aria-hidden="true"><img className="attention-poster" src={poster} alt="" loading="lazy" decoding="async"/></div>}
+      {visible && !failed && (!reduced || manualPlay !== null) &&
+        <AttentionVideo id={scene.id} split={split} playing={playing} resumeAt={resumeAt} onBlocked={onBlocked} onError={onError}/>}
+      <div className="attention-cameras" aria-hidden="true">
+        {cameras.map(name => <span key={name}><i>{name}</i></span>)}
+      </div>
+      <div className="attention-divider" aria-hidden="true"/>
+      <div className="attention-grip" aria-hidden="true">
+        <svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m6 3-4 4 4 4m6-8 4 4-4 4"/>
+        </svg>
+      </div>
+      <input className="attention-scrubber" type="range" min="0" max="100" step="1" value={split}
+        aria-label={'Compare camera footage and attention for ' + scene.title}
+        aria-valuetext={split + '% camera footage, ' + (100 - split) + '% attention'}
+        onChange={e => setSplit(e.currentTarget.valueAsNumber)}
+        onPointerDown={e => {
+          if (!e.isPrimary || e.button !== 0) return;
+          e.preventDefault();
+          e.currentTarget.focus({ preventScroll: true });
+          e.currentTarget.setPointerCapture(e.pointerId);
+          moveDivider(e);
+        }}
+        onPointerMove={e => { if (e.isPrimary && e.currentTarget.hasPointerCapture(e.pointerId)) moveDivider(e); }}
+        onPointerUp={e => { if (e.isPrimary && e.currentTarget.hasPointerCapture(e.pointerId)) moveDivider(e); }} />
+    </div>
+    <figcaption className="attention-caption">
+      <div className="attention-scene">
+        <span className="attention-scene-id">{scene.category === 'city' ? 'Urban' : 'Night'}</span>
+        <h4>{scene.title}</h4>
+      </div>
+      <div className="attention-actions">
+        {failed && <span className="attention-unavailable" role="status">Video unavailable</span>}
+        <button type="button" aria-label={playbackLabel + ' ' + scene.title} title={playbackLabel} onClick={() => {
+          if (failed) { setFailed(false); setManualPlay(true); }
+          else setManualPlay(!playing);
+        }}><Icon name={failed ? 'replay' : playing ? 'pause' : 'play'} size={16}/></button>
+        {document.fullscreenEnabled && <button type="button" aria-label={(expanded ? 'Exit fullscreen' : 'Enlarge ' + scene.title)}
+          title={expanded ? 'Exit fullscreen' : 'Enlarge'} onClick={() => {
+            if (expanded) void document.exitFullscreen();
+            else void card.current?.requestFullscreen().catch(() => {});
+          }}><Icon name="expand" size={16}/></button>}
+      </div>
+    </figcaption>
+  </figure>;
+}
+
+function AttentionPair({ pair, ...playback }: GalleryPlayback & { pair: Pair }) {
+  const [split, setSplit] = useState(0);
+  return <div className="attention-pair attention-cards" role="group" aria-label={pair.label}>
+    {pair.ids.map(id => <AttentionCard key={id} scene={byId.get(id)!} split={split} setSplit={setSplit} {...playback}/>)}
+  </div>;
+}
+
+function AttentionRow({ group, ...playback }: GalleryPlayback & { group: ScenarioGroup }) {
+  const [selected, setSelected] = useState(group.pairs[0]);
+  const headingId = 'attention-' + group.id;
+  return <section className="attention-row" aria-labelledby={headingId}>
+    <div className="attention-picker">
+      <h3 id={headingId}>{group.title}</h3>
+      <div className="attention-choices" role="group" aria-labelledby={headingId}>
+        {group.pairs.map(pair => <button type="button" key={pair.label}
+          aria-pressed={selected === pair} onClick={() => setSelected(pair)}>
+          <img loading="lazy" src={asset(byId.get(pair.ids[0])!.poster)} width="56" height="32" alt=""/>
+          {pair.label}
+        </button>)}
+      </div>
+    </div>
+    <AttentionPair key={selected.ids[0]} pair={selected} {...playback}/>
+  </section>;
+}
+
+export function AttentionStudy() {
+  const [pageVisible, setPageVisible] = useState(!document.hidden);
+  const [fullscreenElement, setFullscreenElement] = useState(document.fullscreenElement);
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    const visibility = () => setPageVisible(!document.hidden);
+    const fullscreen = () => setFullscreenElement(document.fullscreenElement);
+    document.addEventListener('visibilitychange', visibility);
+    document.addEventListener('fullscreenchange', fullscreen);
+    return () => {
+      document.removeEventListener('visibilitychange', visibility);
+      document.removeEventListener('fullscreenchange', fullscreen);
+    };
+  }, []);
+
+  return <section className="attention-study story-section" id="attention" aria-labelledby="attention-title">
+    <div className="story-wrap">
+      <header className="story-heading" data-reveal>
+        <h2 id="attention-title">Focusing on what matters</h2>
+        <p>TrajLoop uses trajectory latent tokens as queries and visual conditioning tokens from all six cameras as keys. Each map shows the attention received by each visual token, averaged over all trajectory queries, all blocks and all five refinement steps.</p>
+      </header>
+      <div className="attention-legend">
+        <span>Relative attention</span>
+        <span className="attention-scale"><small>Low</small><i aria-hidden="true"/><small>High</small></span>
+        <p>Colors are scaled within each camera frame.</p>
+      </div>
+      <div className="attention-wall">
+        {groups.map(group => <AttentionRow key={group.id} group={group}
+          pageVisible={pageVisible} reduced={reduced} fullscreenElement={fullscreenElement}/>)}
+      </div>
+      <p className="attention-conclusion">EponaX pays close attention to key cues for trajectory planning, including obstacles, pedestrians, traffic lights and lane markings. <strong>We observe this attention pattern after scaling EponaX.</strong></p>
+    </div>
+  </section>;
+}
