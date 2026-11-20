@@ -27,7 +27,7 @@ export const authors: Author[] = [
   { name: 'Liang Yue', affiliations: [1, 8], homepage: 'https://philip-2000.github.io/cv/' },
   { name: 'Zeyuan Xu', affiliations: [9], homepage: 'https://scholar.google.com/citations?user=CSfCTQ4AAAAJ&hl=zh-CN' },
   { name: 'Kaicheng Zhang', affiliations: [10], homepage: 'https://openreview.net/profile?id=~Kaicheng_Zhang8' },
-  { name: 'Xiao-Xiao Long', affiliations: [8, 11], homepage: 'https://www.xxlong.site/' },
+  { name: 'Xiao-Xiao Long', affiliations: [8], homepage: 'https://www.xxlong.site/' },
   { name: 'Lingdong Kong', affiliations: [7], homepage: 'https://ldkong.com/' },
   { name: 'Qian Zhang', affiliations: [1], homepage: 'https://scholar.google.com/citations?user=pCY-bikAAAAJ&hl=zh-CN' },
   { name: 'Wei Yin', affiliations: [11], homepage: 'https://scholar.google.com/citations?user=ZIf_rtcAAAAJ&hl=en' },
