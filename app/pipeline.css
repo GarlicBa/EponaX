@@ -2,7 +2,12 @@
 .pipeline-board { position: relative; background: white; }
 .pipeline-original, .pipeline-reveal { display: block; width: 100%; height: auto; }
 .pipeline-reveal { pointer-events: none; position: absolute; inset: 0; --flow-play: paused; }
-.pipeline-reveal[data-ready=true] { background: white; }
+@media screen and (prefers-reduced-motion: no-preference) {
+  .pipeline-board[data-complete=false] .pipeline-original { opacity: 0; }
+}
+/* Keep the final frame visible while the full-size still finishes loading. */
+.pipeline-board[data-complete=true] .pipeline-reveal .paper-module { animation: none; }
+.pipeline-board[data-complete=true] .pipeline-reveal .pipeline-flow { display: none; }
 .pipeline-reveal[data-playing="true"], .pipeline-feedback { --flow-play: running; }
 .paper-module {
   animation: paper-module-appear .32s ease-out both;

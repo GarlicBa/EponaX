@@ -11,8 +11,7 @@ export function InferenceExplainer() {
   const atlasId = useId();
   const reduced = useReducedMotion();
   const [finished, setFinished] = useState(reduced);
-  const [entered, setEntered] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [atlasReady, setAtlasReady] = useState(false);
   const [originalReady, setOriginalReady] = useState(false);
   const [feedback, setFeedback] = useState<{ region: FlowRegion; key: number } | null>(null);
@@ -33,12 +32,19 @@ export function InferenceExplainer() {
     if (reduced) setFinished(true);
     if (finished || reduced || !board.current) return;
 
-    let inView = false;
-    const sync = () => setVisible(inView && !document.hidden);
-    const observer = new IntersectionObserver(([entry]) => {
-      inView = entry.isIntersecting && entry.intersectionRatio >= .1;
-      if (inView) setEntered(true);
-      sync();
+    let entered = false;
+    let visibleFraction = 0;
+    const sync = () => {
+      if (document.hidden) { setPlaying(false); return; }
+      if (visibleFraction >= .1) entered = true;
+      if (entered && visibleFraction === 0) setFinished(true);
+      setPlaying(entered && visibleFraction > 0);
+    };
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        visibleFraction = entry.intersectionRatio;
+        sync();
+      }
     }, { threshold: [0, .1] });
     observer.observe(board.current);
     document.addEventListener('visibilitychange', sync);
@@ -56,22 +62,20 @@ export function InferenceExplainer() {
           alt="EponaX architecture from the paper. Camera history and navigation enter the shared backbone from below. Future RGB, depth and semantic supervision are above. On the right, TrajLoop refines the trajectory latents and the frozen TrajAE decoder produces the future trajectory."
           loading="lazy" onLoad={() => setOriginalReady(true)} />
       </a>
-      {!still && <svg className="pipeline-reveal" viewBox={'0 0 ' + art.width + ' ' + art.height}
-        aria-hidden="true" data-ready={atlasReady && originalReady} data-playing={visible && atlasReady && originalReady}>
-        {entered && <>
-          <defs>
-            <image id={atlasId} href={asset('research/framework-reveal.webp?v=' + art.atlasVersion)} width={art.atlasWidth} height={art.atlasHeight}
-              onLoad={() => setAtlasReady(true)} onError={() => setFinished(true)} />
-          </defs>
-          {art.modules.map(({ name, start, x, y, w, h, sx, sy }) =>
-            <g key={name} data-module={name} className="paper-module" style={{ animationDelay: start + 's' }}
-              onAnimationEnd={name === 'trajectory' ? () => setFinished(true) : undefined}>
-              <svg x={x} y={y} width={w} height={h} viewBox={[sx, sy, w, h].join(' ')} overflow="hidden">
-                <use href={'#' + atlasId} />
-              </svg>
-            </g>)}
-          <PipelineFlow/>
-        </>}
+      {nearby && !reduced && (!finished || !originalReady) && <svg className="pipeline-reveal" viewBox={'0 0 ' + art.width + ' ' + art.height}
+        aria-hidden="true" data-playing={!finished && playing && atlasReady}>
+        <defs>
+          <image id={atlasId} href={asset('research/framework-reveal.webp?v=' + art.atlasVersion)} width={art.atlasWidth} height={art.atlasHeight}
+            onLoad={() => setAtlasReady(true)} onError={() => setFinished(true)} />
+        </defs>
+        {art.modules.map(({ name, start, x, y, w, h, sx, sy }) =>
+          <g key={name} data-module={name} className="paper-module" style={{ animationDelay: start + 's' }}
+            onAnimationEnd={name === 'trajectory' ? () => setFinished(true) : undefined}>
+            <svg x={x} y={y} width={w} height={h} viewBox={[sx, sy, w, h].join(' ')} overflow="hidden">
+              <use href={'#' + atlasId} />
+            </svg>
+          </g>)}
+        <PipelineFlow/>
       </svg>}
       {still && <>
         {feedback && <div key={feedback.key} className="pipeline-feedback"><PipelineFlow region={feedback.region}/></div>}
