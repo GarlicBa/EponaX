@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DrivingReplay } from './DrivingReplay';
 import { Icon } from './Icons';
 import { asset, clock, type Scene } from './demo-utils';
 import { useNearby } from './web-media';
+import { useDrivePriority } from './use-drive-priority';
+import type { DriveBandwidth } from './use-attention-preload';
 import manifest from './demo-manifest.json';
 
 const scenesById = new Map((manifest as Scene[]).map(scene => [scene.id, scene]));
@@ -36,9 +38,13 @@ const groups = [
   pages: pages.map(ids => ids.map(sceneId => scenesById.get(sceneId)!)),
 }));
 
-function DriveRow({ group }: { group: typeof groups[number] }) {
+function DriveRow({ group, index, current, next, turn, inIntro, retained, prefer, reportBuffer, finishDefault }: ReturnType<typeof useDrivePriority> & {
+  group: typeof groups[number]; index: number;
+}) {
+  const onBuffer = useCallback((enough: boolean) => reportBuffer(index, enough), [index, reportBuffer]);
+  const onChoose = () => prefer(index);
   const row = useRef<HTMLElement>(null);
-  const nearby = useNearby(row);
+  const nearby = useNearby(row) && inIntro;
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState(group.pages[0][0]);
   const [browse, setBrowse] = useState(false);
@@ -46,7 +52,14 @@ function DriveRow({ group }: { group: typeof groups[number] }) {
   const pageCount = group.pages.length;
   const catalogueId = 'drive-list-' + group.id;
 
+  const isDefault = selected.id === group.pages[0][0].id;
+  const advance = useCallback(() => finishDefault(index), [finishDefault, index]);
+  useEffect(() => {
+    if (turn === index && !isDefault) advance();
+  }, [turn, index, isDefault, advance]);
+
   function selectScene(scene: Scene) {
+    onChoose();
     setSelected(scene);
     if (browse) browseButton.current?.focus({ preventScroll: true });
     setBrowse(false);
@@ -67,7 +80,14 @@ function DriveRow({ group }: { group: typeof groups[number] }) {
             <button type="button" className="film-card" key={scene.id} onClick={() => selectScene(scene)}
               aria-label={`Play ${scene.title}`} aria-pressed={scene.id === selected.id}>
               <span className="film-image">
-                <img src={nearby ? asset(scene.poster) : undefined} decoding="async" loading="lazy" width="960" height="540" alt="" />
+                <img
+                  sizes="auto, (max-width: 700px) calc(50vw - 25px), (max-width: 1100px) calc(30.333vw - 9px), 153px"
+                  srcSet={nearby ? [
+                    ...[192, 384, 640].map(width => `${asset(`demo/thumbs/${width}/${scene.id}.webp`)} ${width}w`),
+                    `${asset(scene.poster)} 960w`,
+                  ].join(', ') : undefined}
+                  src={nearby ? asset(`demo/thumbs/192/${scene.id}.webp`) : undefined}
+                  decoding="async" loading="lazy" fetchPriority="low" width="960" height="540" alt="" />
                 {scene.id === selected.id && <span className="film-check"><Icon name="check" size={14}/></span>}
                 <span className="film-time">{clock(scene.duration)}</span>
               </span>
@@ -84,18 +104,24 @@ function DriveRow({ group }: { group: typeof groups[number] }) {
         </div>
       </div>
     </div>
-    <div className="drive-screen"><DrivingReplay key={selected.id} scene={selected} nearby={nearby}/></div>
+    <div className="drive-screen"><DrivingReplay key={selected.id} scene={selected} nearby={nearby}
+      foreground={current === index} warm={next === index || (isDefault && index < retained)}
+      prime={turn === index && isDefault} onPrimed={advance} quickStart={index === 0}
+      onBuffer={onBuffer} onChoose={onChoose}/></div>
   </section>;
 }
 
-export function DriveLibrary() {
-  return <section className="drive-library story-section" id="drive" aria-labelledby="drive-title">
+export function DriveLibrary({ onBandwidthChange }: { onBandwidthChange: (state: DriveBandwidth) => void }) {
+  const section = useRef<HTMLElement>(null);
+  const priority = useDrivePriority(section, groups.length);
+  useEffect(() => { onBandwidthChange(priority.attentionBudget); }, [onBandwidthChange, priority.attentionBudget]);
+  return <section ref={section} className="drive-library story-section" id="drive" aria-labelledby="drive-title">
     <div className="story-wrap">
       <header className="story-heading" data-reveal>
         <h2 id="drive-title">Driving in the wild</h2>
-        <p>Watch EponaX plan at 10 Hz as it follows navigation guidance, changes lanes, yields to pedestrians and stops at red lights.</p>
+        <p>EponaX replans at 10 Hz, predicting 60 waypoints over the next 6 seconds. The vehicle uses only the first 0.5 seconds of each trajectory for control. The remaining waypoints show its expected path as it follows navigation guidance, changes lanes, yields to pedestrians and stops at red lights. The shaded band shows the predicted path.</p>
       </header>
-      {groups.map(group => <DriveRow key={group.id} group={group}/>)}
+      {groups.map((group, index) => <DriveRow key={group.id} group={group} index={index} {...priority}/>)}
     </div>
   </section>;
 }

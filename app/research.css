@@ -15,6 +15,7 @@ html { scroll-padding-top: 61px; }
   --soft: #536377;
   --rule: #ccd6e1;
   --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --reading-leading: 1.55;
   color: var(--text);
   background: var(--paper);
   padding-block: var(--section-padding);
@@ -40,7 +41,8 @@ html { scroll-padding-top: 61px; }
 .story-heading h2 {
   width: fit-content; max-width: 100%;
   margin: 0; color: var(--blue); font-size: clamp(2.12rem, 4.2vw, 3.95rem);
-  font-weight: 560; line-height: 1.06; letter-spacing: -.055em; text-wrap: balance;
+  font-weight: 560; line-height: 1.14; letter-spacing: -.055em; text-wrap: balance;
+  padding-block-end: .08em; padding-inline-end: .06em;
 }
 @supports (background-clip: text) {
   @media screen and (forced-colors: none) {
@@ -53,8 +55,8 @@ html { scroll-padding-top: 61px; }
   }
 }
 .story-heading > p, .road-intro > div:first-child > p, .transfer-heading > p {
-  max-width: 70ch; margin: 0; color: var(--soft); font-size: clamp(1rem, 1.15vw, 1.1rem);
-  line-height: 1.55; text-wrap: pretty;
+  max-width: 70ch; margin: 0; color: var(--soft); font-size: 1.0625rem;
+  line-height: var(--reading-leading); text-wrap: pretty;
 }
 .drive-workspace {
   display: grid; grid-template-columns: clamp(240px, 25%, 326px) minmax(0, 1fr);
@@ -274,8 +276,8 @@ html { scroll-padding-top: 61px; }
 .attention-rgb-poster { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--split)) 0 0); }
 .attention-rgb-poster .attention-poster, .attention-stage .attention-film[data-rgb=true] { top: -100%; }
 .attention-stage .attention-film[data-ready=false] { opacity: 0; }
-.attention-split-frame, .attention-cameras { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.attention-cameras { display: grid; grid-template: 1fr 1fr / repeat(3, minmax(0, 1fr)); }
+.attention-rgb-strip { position: absolute; top: 0; left: 0; width: var(--split); height: 100%; pointer-events: none; }
+.attention-cameras { position: absolute; inset: 0; display: grid; grid-template: 1fr 1fr / repeat(3, minmax(0, 1fr)); pointer-events: none; }
 .attention-cameras span { padding: 4px 6px; display: flex; align-items: flex-end; justify-content: flex-end; min-width: 0; }
 .attention-cameras span:not(:nth-child(3n)) { border-right: 1px solid #0a1525cb; }
 .attention-cameras span:nth-child(-n+3) { border-bottom: 1px solid #0a1525cb; }
@@ -347,8 +349,8 @@ details[open]>summary>span { transform:rotate(45deg); }
 .road-intro { grid-template-columns: minmax(0,1fr) auto; column-gap: clamp(18px,3vw,42px); }
 .road-intro > div:first-child { display: grid; gap: var(--heading-gap); }
 .road-study .distance-stat>span,
-.road-study .route-detail dt, .road-study .route-detail>p, .road-study .results-footnote,
-.road-study .road-findings>div>span { color:var(--soft); }
+.road-study .route-detail dt, .road-study .route-detail>p, .road-study .results-footnote { color:var(--soft); }
+.road-study .road-findings>div>span { color: var(--soft); font-size: .875rem; line-height: var(--reading-leading); }
 .road-study .distance-stat strong, .road-study .road-findings strong { width: fit-content; font-weight: 550; }
 .road-study .distance-stat strong { align-self: flex-end; }
 .road-study .distance-stat strong span, .road-study .road-findings strong span { color: inherit; }

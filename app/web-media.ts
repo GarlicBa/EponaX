@@ -15,6 +15,34 @@ export function useNearby(ref: RefObject<HTMLElement | null>) {
   return near;
 }
 
+// Replay data and navigation share bandwidth with the foreground camera.
+export let pendingDriveRequests = 0;
+export function beginDriveRequest() {
+  pendingDriveRequests++;
+  document.dispatchEvent(new Event('eponax:drive-traffic'));
+  let pending = true;
+  return () => {
+    if (!pending) return;
+    pending = false;
+    pendingDriveRequests--;
+    document.dispatchEvent(new Event('eponax:drive-traffic'));
+  };
+}
+
+export async function trackDriveRequest<T>(load: () => Promise<T>) {
+  const finish = beginDriveRequest();
+  try { return await load(); } finally { finish(); }
+}
+
+export function bufferedUntil(video: HTMLVideoElement) {
+  for (let i = 0; i < video.buffered.length; i++) {
+    if (video.buffered.start(i) <= video.currentTime && video.currentTime < video.buffered.end(i)) {
+      return video.buffered.end(i);
+    }
+  }
+  return video.currentTime;
+}
+
 // Detaching the source cancels the native range request as well as decoding.
 // Restore the playhead on return so scrolling away doesn't restart a scene.
 export function useVideoSource(ref: RefObject<HTMLVideoElement | null>, path: string, active: boolean, retry = 0) {

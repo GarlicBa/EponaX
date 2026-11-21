@@ -21,8 +21,19 @@
         const reduced = matchMedia('(prefers-reduced-motion: reduce)');
         let visible = false;
         let playhead = 0;
+        let loading = null;
+        let cachedFilm = '';
+        let cachedUrl = '';
+
+        function setLoading(request) {
+          loading = request;
+          wall.toggleAttribute('data-downloading', !!request);
+          document.dispatchEvent(new Event('eponax:cover-traffic'));
+        }
 
         function detach() {
+          loading?.abort();
+          if (loading) setLoading(null);
           if (!wall.hasAttribute('src')) return;
           if (wall.readyState >= HTMLMediaElement.HAVE_METADATA) playhead = wall.currentTime;
           wall.dataset.ready = 'false';
@@ -31,20 +42,50 @@
           wall.load();
         }
 
-        function update() {
+        function play(src) {
+          if (wall.getAttribute('src') !== src) wall.src = src;
+          wall.muted = true;
+          if (wall.paused) wall.play().catch(() => {});
+        }
+
+        async function update() {
           if (!visible || document.hidden) { detach(); return; }
           if (!poster.hasAttribute('src')) {
             cover.querySelector('source').srcset = wall.dataset.portrait + '.jpg';
             poster.src = wall.dataset.landscape + '.jpg';
           }
           if (reduced.matches) { detach(); return; }
-          const film = portrait.matches ? wall.dataset.portrait : wall.dataset.landscape;
-          if (wall.getAttribute('src') !== film + '.mp4') {
+          const film = (portrait.matches ? wall.dataset.portrait : wall.dataset.landscape) + '.mp4?v=5s';
+          if (cachedFilm !== film) {
             detach();
-            wall.muted = true;
-            wall.src = film + '.mp4';
+            if (cachedUrl) URL.revokeObjectURL(cachedUrl);
+            cachedUrl = '';
+            cachedFilm = film;
           }
-          if (wall.paused) wall.play().catch(() => {});
+          if (cachedUrl) { play(cachedUrl); return; }
+          if (loading) return;
+          const link = navigator.connection;
+          // The original streams average 7.2 Mbps in landscape and 2.1 Mbps in portrait.
+          if (wall.getAttribute('src') === film || (!link?.saveData && link?.downlink >= (portrait.matches ? 3 : 9))) {
+            play(film);
+            return;
+          }
+          // On a slow or unmeasured link, keep the poster visible until the entire
+          // short loop is local. A return visit to the cover can reuse the same bytes.
+          const request = new AbortController();
+          setLoading(request);
+          try {
+            const response = await fetch(film, { signal: request.signal });
+            if (!response.ok) throw new Error('Video wall unavailable');
+            const clip = await response.blob();
+            if (request.signal.aborted) return;
+            cachedUrl = URL.createObjectURL(clip);
+            play(cachedUrl);
+          } catch {
+            // Keep the cover readable. Re-entering the cover retries the request.
+          } finally {
+            if (loading === request) setLoading(null);
+          }
         }
 
         wall.addEventListener('loadedmetadata', () => {

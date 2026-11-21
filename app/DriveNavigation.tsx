@@ -103,10 +103,10 @@ function distance(meters: number) {
   return meters >= 1000 ? (meters / 1000).toFixed(1) + ' km' : Math.round(meters) + ' m';
 }
 
-export function DriveNavigation({ frame, guide, fps, scene, index }: {
-  frame?: Frame; guide?: Guidance; fps: number; scene: string; index: number;
+export function DriveNavigation({ frame, guide, fps, scene, index, prepare }: {
+  frame?: Frame; guide?: Guidance; fps: number; scene: string; index: number; prepare: boolean;
 }) {
-  const map = useStreetMap(scene, !!frame);
+  const map = useStreetMap(scene, prepare);
   const fix = map && mapFixAtFrame(map, index);
   const action = guide?.maneuver != null ? maneuvers[guide.maneuver] : undefined;
   return <aside className="drive-navigation" aria-label="Driving navigation">

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import type { Plugin } from 'vite';
 import type { Recording } from '../app/demo-utils';
 import { chunkFrames, replayFps, smoothingRadius, type ReplayChunk } from '../app/replay-format';
@@ -34,13 +35,14 @@ export function replayChunks(): Plugin {
     configResolved(config) { directory = join(config.publicDir, 'demo/data'); },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const match = req.url?.split('?')[0].match(/\/demo\/playback\/([a-z]+_\d+)\/(\d+)\.json$/);
+        const match = req.url?.split('?')[0].match(/\/demo\/playback\/([a-z]+_\d+)\/(\d+)\.json(\.gz)?$/);
         if (!match || !existsSync(join(directory, match[1] + '.json'))) return next();
         const source = read(match[1]);
         const number = Number(match[2]);
         if (number * chunkFrames >= source.frames.length) { res.statusCode = 404; res.end(); return; }
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(chunk(source, number)));
+        const json = JSON.stringify(chunk(source, number));
+        res.setHeader('Content-Type', match[3] ? 'application/gzip' : 'application/json');
+        res.end(match[3] ? gzipSync(json) : json);
       });
     },
     generateBundle() {
@@ -48,7 +50,10 @@ export function replayChunks(): Plugin {
         const id = file.slice(0, -5);
         const source = read(id);
         for (let i = 0; i * chunkFrames < source.frames.length; i++) {
-          this.emitFile({ type: 'asset', fileName: `demo/playback/${id}/${i}.json`, source: JSON.stringify(chunk(source, i)) });
+          const fileName = `demo/playback/${id}/${i}.json`;
+          const json = JSON.stringify(chunk(source, i));
+          this.emitFile({ type: 'asset', fileName, source: json });
+          this.emitFile({ type: 'asset', fileName: fileName + '.gz', source: gzipSync(json) });
         }
       }
     },

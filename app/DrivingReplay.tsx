@@ -3,7 +3,7 @@ import { displayProjection } from './display-projection';
 import { DriveNavigation } from './DriveNavigation';
 import { Icon } from './Icons';
 import { asset, categories, clock, type Scene, useReducedMotion, useVisible } from './demo-utils';
-import { useVideoSource } from './web-media';
+import { bufferedUntil, useVideoSource } from './web-media';
 import { useReplayData } from './use-replay-data';
 import { replayFps } from './replay-format';
 
@@ -19,7 +19,7 @@ function TrajectoryOverlay({ points }: { points: [number, number][] }) {
       const dy = next[1] - previous[1];
       const length = Math.hypot(dx, dy) || 1;
       // Narrow the ribbon toward the horizon in the 960 × 540 camera view.
-      const halfWidth = 3.3 + 54 * Math.max(0, (y - 265) / 275) ** 1.2;
+      const halfWidth = 1.7 * (2.7 + 35 * Math.max(0, (y - 265) / 275) ** 1.2);
       const nx = -dy / length * halfWidth;
       const ny = dx / length * halfWidth;
       left.push(`${x + nx},${y + ny}`);
@@ -46,12 +46,16 @@ function TrajectoryOverlay({ points }: { points: [number, number][] }) {
   </svg>;
 }
 
-export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean }) {
+export function DrivingReplay({ scene, nearby, foreground, warm, prime, onPrimed, quickStart, onBuffer, onChoose }: {
+  scene: Scene; nearby: boolean; foreground: boolean; warm: boolean;
+  prime: boolean; onPrimed: () => void; quickStart: boolean;
+  onBuffer: (enough: boolean) => void; onChoose: () => void;
+}) {
   const container = useRef<HTMLDivElement>(null);
   const camera = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const visible = useVisible(camera, '.story-nav');
-  const [keepBuffer, setKeepBuffer] = useState(false);
+  const prepare = foreground || warm || prime;
   const reduced = useReducedMotion();
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -66,7 +70,7 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
   const fps = replayFps;
   const time = index / fps;
   const frameIndex = Math.min(index, Math.round(duration * fps) - 1);
-  const entry = useReplayData(scene, frameIndex, visible, retry);
+  const entry = useReplayData(scene, frameIndex, prepare, retry, foreground);
   const chunk = entry?.data;
   const localIndex = chunk ? frameIndex - chunk.firstFrame : -1;
   const frame = chunk?.frames[localIndex];
@@ -74,20 +78,74 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
   const projection = useMemo(() => chunk && frame ? displayProjection(chunk.frames, localIndex) : [],
     [chunk, frame, localIndex]);
   const message = error || (entry?.failed ? 'This recording could not load. Try again.' : '');
-  // Pause immediately offscreen, but reuse the media buffer on a quick scroll back.
+  const canPlay = visible && foreground && !!frame && !message;
+  useVideoSource(videoRef, scene.video, prepare, retry);
+  const hasFrame = !!frame;
   useEffect(() => {
-    if (visible) { setKeepBuffer(true); return; }
-    if (!keepBuffer) return;
-    const timeout = window.setTimeout(() => setKeepBuffer(false), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [visible, keepBuffer]);
-  useVideoSource(videoRef, scene.video, visible || keepBuffer, retry);
+    if (!prime) return;
+    if (message) { onPrimed(); return; }
+    const video = videoRef.current;
+    if (!video || !hasFrame) return;
+    const check = () => {
+      const enough = bufferedUntil(video) - video.currentTime >= 4;
+      // Browsers may suspend offscreen loading at their own preload limit.
+      const suspended = video.networkState === video.NETWORK_IDLE && video.readyState >= video.HAVE_METADATA;
+      if (enough || suspended) onPrimed();
+    };
+    check();
+    for (const event of ['progress', 'suspend', 'loadedmetadata', 'loadeddata']) video.addEventListener(event, check);
+    return () => {
+      for (const event of ['progress', 'suspend', 'loadedmetadata', 'loadeddata']) video.removeEventListener(event, check);
+    };
+  }, [prime, hasFrame, message, onPrimed]);
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (visible && wantsPlay && !scrubbing) video.play().catch(() => {});
-    else video.pause();
-  }, [visible, wantsPlay, scrubbing, retry]);
+    if (!canPlay || !wantsPlay || scrubbing) { video.pause(); return; }
+    const start = () => {
+      stopWaiting();
+      video.play().catch(() => {});
+    };
+    const check = () => {
+      if (quickStart || video.currentTime > 0 || bufferedUntil(video) >= Math.min(2, video.duration)) start();
+    };
+    // Some mobile browsers fetch only metadata until play() is called.
+    const fallback = window.setTimeout(start, 3500);
+    function stopWaiting() {
+      window.clearTimeout(fallback);
+      video?.removeEventListener('progress', check);
+      video?.removeEventListener('canplay', check);
+    }
+    video.addEventListener('progress', check);
+    video.addEventListener('canplay', check);
+    check();
+    return stopWaiting;
+  }, [canPlay, wantsPlay, scrubbing, retry, quickStart]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !canPlay || !playing || scrubbing || reduced) return;
+    const checkBuffer = () => {
+      if (video.seeking || video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) { onBuffer(false); return; }
+      const end = bufferedUntil(video);
+      const lead = (end - video.currentTime) / video.playbackRate;
+      if (lead >= 6 || (lead > 0 && end >= video.duration - .05)) onBuffer(true);
+      else if (lead < 2) onBuffer(false);
+    };
+    const revoke = () => onBuffer(false);
+    checkBuffer();
+    video.addEventListener('progress', checkBuffer);
+    video.addEventListener('timeupdate', checkBuffer);
+    video.addEventListener('waiting', revoke);
+    video.addEventListener('seeking', revoke);
+    return () => {
+      revoke();
+      video.removeEventListener('progress', checkBuffer);
+      video.removeEventListener('timeupdate', checkBuffer);
+      video.removeEventListener('waiting', revoke);
+      video.removeEventListener('seeking', revoke);
+    };
+  }, [canPlay, playing, scrubbing, reduced, onBuffer]);
   useEffect(() => {
     if (!visible) return;
     const video = videoRef.current;
@@ -148,20 +206,20 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
     if (!video.paused) { setWantsPlay(false); video.pause(); }
     else {
       setWantsPlay(true);
-      if (!visible) return;
+      if (!canPlay) return;
       video.play().catch((error: DOMException) => {
         if (error.name !== 'AbortError' && video.isConnected) setError('Playback could not start. Try reloading this recording.');
       });
     }
   }
-  return <div className="replay" ref={container}>
+  return <div className="replay" ref={container} onPointerDownCapture={onChoose} onKeyDownCapture={onChoose}>
     <div className="replay-heading"><h3>{scene.title}</h3></div>
     <div className="replay-body"><div className="replay-visual"><div className="camera-atlas" ref={camera}
       title="Drag left or right to scrub"
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={finishDrag}
       onPointerCancel={finishDrag} onLostPointerCapture={finishDrag}>
-      {nearby && !ready && <img decoding="async" className="replay-poster" src={asset(scene.poster)} alt="" />}
-      <video ref={videoRef} muted loop playsInline preload={wantsPlay ? 'none' : 'metadata'}
+      {nearby && (!ready || (frameIndex === 0 && !frame)) && <img decoding="async" className="replay-poster" src={asset(scene.poster)} alt="" />}
+      <video ref={videoRef} muted loop playsInline preload={prime || (foreground && wantsPlay) ? 'auto' : 'metadata'}
         aria-label={`${scene.title}, six synchronized cameras`} onEmptied={() => setReady(false)}
         onLoadedData={() => setReady(true)} onPlaying={() => setReady(true)}
         onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
@@ -172,13 +230,13 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
         <span className="replay-location">Shanghai · {categories[scene.category]}</span>
         {projection.length > 0 && <>
           <TrajectoryOverlay points={projection}/>
-          <span className="projection-legend">Model trajectory<i className="trajectory-swatch" aria-hidden="true"/></span>
+          <span className="projection-legend">Model trajectory<svg className="trajectory-swatch" viewBox="0 0 23 7" aria-hidden="true"><path d="M2 3.5h19" fill="none" stroke="#a0e9ff" strokeWidth="2" strokeDasharray="3 2"/></svg></span>
         </>}
       </div>
       <div className="surround-labels">{['Front left','Front right','Rear left','Rear','Rear right'].map(label => <span key={label}>{label}</span>)}</div>
       {message && <div className="media-error"><p>{message}</p><button className="button button-white" onClick={() => { setReady(false); setError(''); setRetry(retry+1); }}>Reload recording</button></div>}
     </div></div>
-    <DriveNavigation frame={frame} guide={guide} fps={fps} scene={scene.id} index={frameIndex}/></div>
+    <DriveNavigation prepare={prepare} frame={frame} guide={guide} fps={fps} scene={scene.id} index={frameIndex}/></div>
     <div className="playback-controls"><button className="icon-button primary-play" onClick={playPause} aria-label={playing ? 'Pause driving replay' : 'Play driving replay'}><Icon name={playing?'pause':'play'} /></button><button className="icon-button" onClick={()=>seek(0)} aria-label="Restart recording"><Icon name="replay" /></button><span className="playback-time">{clock(time)}<span> / {clock(duration)}</span></span><input className="timeline" type="range" aria-label="Driving replay position" aria-valuetext={`${time.toFixed(1)} of ${duration} seconds`} min="0" max={duration - 1/fps} step={1/fps} value={Math.min(time,duration-1/fps)} onChange={e=>seek(Number(e.target.value))} style={{backgroundImage:`linear-gradient(to right, #536168 ${time/duration*100}%, #d5d8d8 ${time/duration*100}%)`}} /><div className="frame-step"><button className="icon-button" aria-label="Previous frame" onClick={()=>step(-1)}><Icon name="back" size={16} /></button><button className="icon-button" aria-label="Next frame" onClick={()=>step(1)}><Icon name="next" size={16} /></button></div><label className="speed-control"><span className="sr-only">Playback speed</span><select value={rate} onChange={e=>setRate(Number(e.target.value))}><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option></select><Icon name="chevron" size={14} /></label>{document.fullscreenEnabled && <button className="icon-button fullscreen-button" aria-label="Expand driving replay" onClick={()=> { if (document.fullscreenElement) document.exitFullscreen(); else container.current?.requestFullscreen().catch(()=>{}); }}><Icon name="expand" /></button>}</div>
   </div>;
 }

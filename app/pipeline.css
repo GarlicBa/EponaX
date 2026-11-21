@@ -86,7 +86,7 @@
   margin: 0; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
   align-items: center; gap: clamp(16px, 2vw, 30px);
 }
-.module-detail figcaption { color: var(--soft); font-size: .94rem; line-height: 1.55; }
+.module-detail figcaption { color: var(--soft); font-size: 1rem; line-height: var(--reading-leading); }
 .module-image { min-width: 0; display: grid; gap: 6px; color: var(--blue); cursor: zoom-in; }
 .module-image img { display: block; width: 100%; height: auto; aspect-ratio: 2600 / 949; object-fit: contain; }
 @media (prefers-reduced-motion: no-preference) {

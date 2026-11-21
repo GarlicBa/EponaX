@@ -3,7 +3,7 @@ import type { Frame } from './demo-utils';
 import { smoothingRadius } from './replay-format';
 
 type Point = [number, number];
-const samples = 41;
+const samples = 10;
 const maxShift = 10; // Pixels in the 960 × 540 front view.
 
 // The camera clips each prediction independently, so point indices can shift

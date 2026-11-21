@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { beginDriveRequest, trackDriveRequest } from './web-media';
 import { asset, type Guidance } from './demo-utils';
 
 type Point = [number, number];
@@ -21,7 +22,8 @@ export function useStreetMap(scene: string, active: boolean) {
   const [map, setMap] = useState<StreetMap>();
   useEffect(() => {
     let current = true;
-    if (active) maps['./navigation-maps/' + scene + '.json']?.().then(value => {
+    const load = maps['./navigation-maps/' + scene + '.json'];
+    if (active && load) trackDriveRequest(load).then(value => {
       if (current) setMap(value);
     }).catch(() => {});
     return () => { current = false; };
@@ -50,6 +52,18 @@ export function RecordedStreetMap({ scene, map, fix, guide }: {
   scene: string; map: StreetMap; fix: MapFix; guide?: Guidance
 }) {
   const [mode, setMode] = useState<'local' | 'overview'>('local');
+  const background = useRef<SVGImageElement>(null);
+  useLayoutEffect(() => {
+    const image = background.current!;
+    const finish = beginDriveRequest();
+    image.addEventListener('load', finish);
+    image.addEventListener('error', finish);
+    return () => {
+      image.removeEventListener('load', finish);
+      image.removeEventListener('error', finish);
+      finish();
+    };
+  }, [mode, scene]);
   const view = map.views[mode];
   const [x, y, w, h] = view.bounds;
   const center = mode === 'local' ? fix.position! : map.views.overview.center;
@@ -70,7 +84,7 @@ export function RecordedStreetMap({ scene, map, fix, guide }: {
   const showTurnLabel = junction && guide?.nextRoad && junction[0] > 10 && junction[0] < 350 && junction[1] > 20 && junction[1] < 222;
   return <div className="street-map">
     <svg viewBox="0 0 360 240" role="img" aria-label={mode === 'local' ? 'Heading-up map around the vehicle and upcoming junction' : 'Heading-up overview of the recorded route section'}>
-      <image href={asset(`demo/maps/${scene}-${mode}.webp`)} x={x} y={y} width={w} height={h} transform={transform} preserveAspectRatio="none"/>
+      <image key={mode} ref={background} href={asset(`demo/maps/${scene}-${mode}.webp`)} x={x} y={y} width={w} height={h} transform={transform} preserveAspectRatio="none"/>
       <g transform={transform} fill="none" strokeLinecap="round" strokeLinejoin="round">
         {plan?.segments.map(s => <polyline key={s} points={map.segments[s].points.join(' ')} stroke="white" strokeWidth="6.5" vectorEffect="non-scaling-stroke"/>)}
         {plan?.segments.map((s,i) => <polyline key={s} points={map.segments[s].points.join(' ')}

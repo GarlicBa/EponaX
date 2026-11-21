@@ -1,10 +1,23 @@
 import { useEffect, useMemo, useReducer } from 'react';
 import { asset, type Scene } from './demo-utils';
+import { trackDriveRequest } from './web-media';
 import { chunkFrames, replayFps, type ReplayChunk } from './replay-format';
 
 type Entry = { data?: ReplayChunk; controller?: AbortController; failed?: boolean };
 
-export function useReplayData(scene: Scene, frame: number, active: boolean, retry: number) {
+async function readChunk(path: string, options: RequestInit): Promise<ReplayChunk> {
+  const compressed = typeof DecompressionStream === 'function';
+  const response = await fetch(asset(compressed ? path + '.gz' : path), options);
+  if (!response.ok) throw new Error('Recording unavailable');
+  if (!compressed) return response.json();
+  // Some hosts send Content-Encoding and the browser has already decoded the body.
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return JSON.parse(new TextDecoder().decode(bytes));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).json();
+}
+
+export function useReplayData(scene: Scene, frame: number, active: boolean, retry: number, foreground: boolean) {
   const entries = useMemo(() => new Map<number, Entry>(), [scene.id, retry]);
   const [, refresh] = useReducer(n => n + 1, 0);
   const current = Math.floor(frame / chunkFrames);
@@ -33,11 +46,9 @@ export function useReplayData(scene: Scene, frame: number, active: boolean, retr
       const controller = new AbortController();
       const entry: Entry = { controller };
       entries.set(i, entry);
-      fetch(asset(`demo/playback/${scene.id}/${i}.json`), { signal: controller.signal })
-        .then(response => {
-          if (!response.ok) throw new Error('Recording unavailable');
-          return response.json();
-        })
+      trackDriveRequest(() => readChunk(`demo/playback/${scene.id}/${i}.json`, {
+        signal: controller.signal, priority: foreground ? 'high' : 'low',
+      }))
         .then(data => { entry.data = data; })
         .catch(() => { entry.failed = true; })
         .finally(() => {
@@ -46,6 +57,6 @@ export function useReplayData(scene: Scene, frame: number, active: boolean, retr
           refresh();
         });
     }
-  }, [active, current, warmNext, entries, scene.id]);
+  }, [active, current, warmNext, entries, scene.id, foreground]);
   return entry;
 }

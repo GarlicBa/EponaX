@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useContext, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent, RefObject } from 'react';
 import recordings from './demo-manifest.json';
 import { asset, useReducedMotion, useVisible } from './demo-utils';
 import { useNearby } from './web-media';
+import { useAttentionPreload, type DriveBandwidth } from './use-attention-preload';
 import { queueAttentionStart } from './attention-starts';
 import { Icon } from './Icons';
 
@@ -25,25 +26,25 @@ const groups: ScenarioGroup[] = [
     { label: 'Open and narrow streets', ids: ['city_13', 'night_15'] },
   ] },
 ];
+const defaultIds = groups.flatMap(group => group.pairs[0].ids);
+const PreloadedClips = createContext<ReadonlyMap<string, string>>(new Map());
 const byId = new Map(recordings.map(scene => [scene.id, scene]));
 const cameras = ['Front left', 'Front', 'Front right', 'Rear left', 'Rear', 'Rear right'];
 
 // The upper half of each encoded frame contains attention, the lower half RGB.
-// Both sides of a moving divider are drawn from the very same decoded frame.
-function SplitFrame({ video, split, playing }: { video: HTMLVideoElement; split: number; playing: boolean }) {
+// The video displays attention directly. Copy just the visible strip of RGB.
+function RgbStrip({ video, split, playing }: { video: HTMLVideoElement; split: number; playing: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const position = useRef(split);
-  const width = video.videoWidth;
+  const width = Math.round(video.videoWidth * split / 100);
   const height = video.videoHeight / 2;
   const draw = useCallback(() => {
     const ctx = canvas.current?.getContext('2d', { alpha: false });
     if (!ctx || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-    const cut = Math.round(width * position.current / 100);
+    const cut = ctx.canvas.width;
     ctx.drawImage(video, 0, height, cut, height, 0, 0, cut, height);
-    ctx.drawImage(video, cut, 0, width - cut, height, cut, 0, width - cut, height);
-  }, [video, width, height]);
+  }, [video, height]);
 
-  useLayoutEffect(() => { position.current = split; draw(); }, [split, draw]);
+  useLayoutEffect(draw, [draw, width]);
   useEffect(() => {
     if (!playing) return;
     if (typeof video.requestVideoFrameCallback === 'function') {
@@ -60,7 +61,7 @@ function SplitFrame({ video, split, playing }: { video: HTMLVideoElement; split:
     return () => cancelAnimationFrame(handle);
   }, [video, draw, playing]);
 
-  return <canvas ref={canvas} className="attention-split-frame" width={width} height={height} aria-hidden="true"/>;
+  return <canvas ref={canvas} className="attention-rgb-strip" width={width} height={height} aria-hidden="true"/>;
 }
 
 type ReplayProps = {
@@ -69,6 +70,7 @@ type ReplayProps = {
 };
 
 function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, onError }: ReplayProps) {
+  const clips = useContext(PreloadedClips);
   const ref = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
   const [granted, setGranted] = useState(false);
@@ -81,14 +83,14 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
   useEffect(() => {
     if (!granted) return;
     const video = ref.current!;
-    video.src = asset('attention/' + id + '.mp4');
+    video.src = clips.get(id) ?? asset('attention/' + id + '.mp4');
     return () => {
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) resumeAt.current = video.currentTime;
       video.pause();
       video.removeAttribute('src');
       video.load();
     };
-  }, [granted, id, resumeAt]);
+  }, [clips, granted, id, resumeAt]);
   useEffect(() => {
     const video = ref.current!;
     if (!granted) return;
@@ -133,7 +135,7 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
       onLoadedData={showFrame} onPlaying={showFrame} onProgress={allowNextStart}
       onError={e => { release.current?.(); if (e.currentTarget.hasAttribute('src')) onError(); }} />
     {ready && split > 0 && split < 100 && ref.current &&
-      <SplitFrame video={ref.current} split={split} playing={playing}/>}
+      <RgbStrip video={ref.current} split={split} playing={playing}/>}
   </>;
 }
 
@@ -240,7 +242,8 @@ function AttentionRow({ group, ...playback }: Omit<GalleryPlayback, 'nearby' | '
           onPointerEnter={() => warmPosters(pair)} onClick={() => {
             if (selected !== pair) { setPreferred(true); setSelected(pair); }
           }}>
-          <img loading="lazy" src={nearby ? asset(byId.get(pair.ids[0])!.poster) : undefined} width="56" height="32" alt=""/>
+          <img loading="lazy" decoding="async" fetchPriority="low"
+            src={nearby ? asset(`demo/thumbs/192/${pair.ids[0]}.webp`) : undefined} width="56" height="32" alt=""/>
           {pair.label}
         </button>)}
       </div>
@@ -249,7 +252,10 @@ function AttentionRow({ group, ...playback }: Omit<GalleryPlayback, 'nearby' | '
   </section>;
 }
 
-export function AttentionStudy() {
+export function AttentionStudy({ budget }: { budget: DriveBandwidth }) {
+  const section = useRef<HTMLElement>(null);
+  const inView = useVisible(section);
+  const clips = useAttentionPreload(defaultIds, budget, inView);
   const [fullscreenElement, setFullscreenElement] = useState(document.fullscreenElement);
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -258,7 +264,7 @@ export function AttentionStudy() {
     return () => document.removeEventListener('fullscreenchange', fullscreen);
   }, []);
 
-  return <section className="attention-study story-section" id="attention" aria-labelledby="attention-title">
+  return <section ref={section} className="attention-study story-section" id="attention" aria-labelledby="attention-title">
     <div className="story-wrap">
       <header className="story-heading" data-reveal>
         <h2 id="attention-title">Focusing on what matters</h2>
@@ -270,8 +276,8 @@ export function AttentionStudy() {
         <p>Colors are scaled within each camera frame.</p>
       </div>
       <div className="attention-wall">
-        {groups.map(group => <AttentionRow key={group.id} group={group}
-          reduced={reduced} fullscreenElement={fullscreenElement}/>)}
+        <PreloadedClips.Provider value={clips}>{groups.map(group => <AttentionRow key={group.id} group={group}
+          reduced={reduced} fullscreenElement={fullscreenElement}/>)}</PreloadedClips.Provider>
       </div>
       <p className="attention-conclusion">EponaX pays close attention to key cues for trajectory planning, including obstacles, pedestrians, traffic lights and lane markings. <strong>We observe this attention pattern after scaling EponaX.</strong></p>
     </div>
