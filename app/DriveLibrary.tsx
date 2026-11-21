@@ -13,9 +13,9 @@ const groups = [
     id: 'traffic', title: 'EponaX yields to pedestrians and vehicles, avoids obstacles and obeys traffic signals.',
     pages: [
       ['night_13', 'glare_03', 'city_09', 'night_08', 'city_03', 'night_06'],
-      ['glare_01', 'night_01', 'city_14', 'night_11'],
-      ['city_07', 'night_04', 'city_20', 'night_09'],
-      ['night_07', 'city_12', 'night_02', 'city_19', 'night_10'],
+      ['glare_01', 'night_01', 'city_14', 'night_11', 'city_07', 'night_04'],
+      ['city_20', 'night_09', 'night_07', 'city_12', 'night_02', 'city_19'],
+      ['night_10'],
     ],
   },
   {

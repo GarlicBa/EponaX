@@ -166,7 +166,7 @@ export function ResearchResults() {
       <div className="bench-summaries"><FamilyComparison/><ZeroShotComparison/></div>
       <header className="navsim-heading" id="navsim-results">
         <h3>NAVSIM results</h3>
-        <p>We sample only one trajectory per scene. Darker shading indicates a higher overall score within each table. Gray marks the human reference.</p>
+        <p><strong>We sample only one trajectory per scene.</strong> Darker shading indicates a higher overall score within each table. Gray marks the human reference.</p>
       </header>
       {benchmarks.map(b => <FullComparison key={b.id} benchmark={b}/>)}
     </div>
