@@ -16,20 +16,41 @@ export function useReducedMotion() {
   useEffect(() => { const query = window.matchMedia('(prefers-reduced-motion: reduce)'); const update = () => setReduce(query.matches); query.addEventListener('change', update); return () => query.removeEventListener('change', update); }, []);
   return reduce;
 }
-export function useVisible(ref: RefObject<Element | null>) {
+export function useVisible(ref: RefObject<Element | null>, topOverlaySelector?: string) {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
     let inView = false;
-    const sync = () => setVisible(inView && !document.hidden);
-    const observer = new IntersectionObserver(([entry]) => {
-      inView = entry.isIntersecting && entry.intersectionRatio >= .05;
-      sync();
-    }, { threshold: [0, .05] });
-    observer.observe(node);
+    const overlay = topOverlaySelector ? document.querySelector(topOverlaySelector) : null;
+    const sync = () => setVisible(inView && !document.hidden
+      && (!overlay || !document.fullscreenElement || document.fullscreenElement.contains(node)));
+    let observer: IntersectionObserver;
+    let inset: number;
+    const observe = () => {
+      const height = overlay && !document.fullscreenElement ? overlay.getBoundingClientRect().height : 0;
+      if (height === inset) { sync(); return; }
+      inset = height;
+      observer?.disconnect();
+      observer = new IntersectionObserver(([entry]) => {
+        inView = entry.isIntersecting && entry.intersectionRatio >= .05;
+        sync();
+      }, { rootMargin: `-${height}px 0px 0px`, threshold: [0, .05] });
+      observer.observe(node);
+    };
+    observe();
+    const resize = overlay ? new ResizeObserver(observe) : null;
+    if (overlay) {
+      resize?.observe(overlay);
+      document.addEventListener('fullscreenchange', observe);
+    }
     document.addEventListener('visibilitychange', sync);
-    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', sync); };
-  }, [ref]);
+    return () => {
+      observer.disconnect();
+      resize?.disconnect();
+      document.removeEventListener('fullscreenchange', observe);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [ref, topOverlaySelector]);
   return visible;
 }

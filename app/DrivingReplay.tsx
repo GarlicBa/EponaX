@@ -48,8 +48,10 @@ function TrajectoryOverlay({ points }: { points: [number, number][] }) {
 
 export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean }) {
   const container = useRef<HTMLDivElement>(null);
+  const camera = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const visible = useVisible(container);
+  const visible = useVisible(camera, '.story-nav');
+  const [keepBuffer, setKeepBuffer] = useState(false);
   const reduced = useReducedMotion();
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -72,7 +74,14 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
   const projection = useMemo(() => chunk && frame ? displayProjection(chunk.frames, localIndex) : [],
     [chunk, frame, localIndex]);
   const message = error || (entry?.failed ? 'This recording could not load. Try again.' : '');
-  useVideoSource(videoRef, scene.video, visible, retry);
+  // Pause immediately offscreen, but reuse the media buffer on a quick scroll back.
+  useEffect(() => {
+    if (visible) { setKeepBuffer(true); return; }
+    if (!keepBuffer) return;
+    const timeout = window.setTimeout(() => setKeepBuffer(false), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [visible, keepBuffer]);
+  useVideoSource(videoRef, scene.video, visible || keepBuffer, retry);
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -80,6 +89,7 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
     else video.pause();
   }, [visible, wantsPlay, scrubbing, retry]);
   useEffect(() => {
+    if (!visible) return;
     const video = videoRef.current;
     if (playing && video && typeof video.requestVideoFrameCallback === 'function') {
       const tick = (_now: number, frame: VideoFrameCallbackMetadata) => {
@@ -93,7 +103,7 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
     const tick = () => { if (videoRef.current) setIndex(Math.floor(videoRef.current.currentTime * fps + 0.0001)); raf = requestAnimationFrame(tick); };
     if (playing) raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, fps]);
+  }, [visible, playing, fps]);
   useEffect(() => {
     const video = videoRef.current;
     if (video) { video.defaultPlaybackRate = rate; video.playbackRate = rate; }
@@ -138,6 +148,7 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
     if (!video.paused) { setWantsPlay(false); video.pause(); }
     else {
       setWantsPlay(true);
+      if (!visible) return;
       video.play().catch((error: DOMException) => {
         if (error.name !== 'AbortError' && video.isConnected) setError('Playback could not start. Try reloading this recording.');
       });
@@ -145,7 +156,7 @@ export function DrivingReplay({ scene, nearby }: { scene: Scene; nearby: boolean
   }
   return <div className="replay" ref={container}>
     <div className="replay-heading"><h3>{scene.title}</h3></div>
-    <div className="replay-body"><div className="replay-visual"><div className="camera-atlas"
+    <div className="replay-body"><div className="replay-visual"><div className="camera-atlas" ref={camera}
       title="Drag left or right to scrub"
       onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={finishDrag}
       onPointerCancel={finishDrag} onLostPointerCapture={finishDrag}>
