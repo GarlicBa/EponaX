@@ -48,8 +48,8 @@ export function HeroCover() {
     <video className="hero-wall" muted loop playsInline preload="none" data-ready="false" aria-hidden="true"
       data-landscape="./demo/hero/wall" data-portrait="./demo/hero/wall-portrait"/>
     <noscript><picture>
-      <source media="(orientation: portrait)" srcSet="./demo/hero/wall-portrait.jpg"/>
-      <img className="hero-poster" src="./demo/hero/wall.jpg" alt="" width="1920" height="1080"/>
+      <source media="(orientation: portrait)" srcSet="./demo/hero/wall-portrait.webp"/>
+      <img className="hero-poster" src="./demo/hero/wall.webp" alt="" width="1920" height="1080"/>
     </picture></noscript>
   </section>;
 }

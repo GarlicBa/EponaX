@@ -21,73 +21,80 @@
         const reduced = matchMedia('(prefers-reduced-motion: reduce)');
         let visible = false;
         let playhead = 0;
-        let loading = null;
-        let cachedFilm = '';
-        let cachedUrl = '';
+        let firstSample = null;
+        let nativeStartTimer = 0;
 
-        function setLoading(request) {
-          loading = request;
-          wall.toggleAttribute('data-downloading', !!request);
-          document.dispatchEvent(new Event('eponax:cover-traffic'));
+        function fullyBuffered() {
+          return wall.buffered.length > 0 && wall.buffered.start(0) < .1 &&
+            wall.buffered.end(0) >= wall.duration - .05;
         }
 
-        function detach() {
-          loading?.abort();
-          if (loading) setLoading(null);
+        function pauseCover() {
+          clearTimeout(nativeStartTimer);
           if (!wall.hasAttribute('src')) return;
           if (wall.readyState >= HTMLMediaElement.HAVE_METADATA) playhead = wall.currentTime;
-          wall.dataset.ready = 'false';
           wall.pause();
-          wall.removeAttribute('src');
-          wall.load();
+          wall.dataset.ready = 'false';
+          // Keep a finished loop in the player, but cancel partial downloads for Drives.
+          if (!fullyBuffered()) {
+            wall.removeAttribute('src');
+            wall.load();
+          }
         }
 
-        function play(src) {
-          if (wall.getAttribute('src') !== src) wall.src = src;
-          wall.muted = true;
-          if (wall.paused) wall.play().catch(() => {});
+        function play() {
+          if (visible && !document.hidden && !reduced.matches && wall.paused && wall.hasAttribute('src')) {
+            wall.muted = true;
+            wall.play().catch(() => {});
+          }
         }
 
-        async function update() {
-          if (!visible || document.hidden) { detach(); return; }
-          if (!poster.hasAttribute('src')) {
-            cover.querySelector('source').srcset = wall.dataset.portrait + '.jpg';
-            poster.src = wall.dataset.landscape + '.jpg';
-          }
-          if (reduced.matches) { detach(); return; }
-          const film = (portrait.matches ? wall.dataset.portrait : wall.dataset.landscape) + '.mp4?v=5s';
-          if (cachedFilm !== film) {
-            detach();
-            if (cachedUrl) URL.revokeObjectURL(cachedUrl);
-            cachedUrl = '';
-            cachedFilm = film;
-          }
-          if (cachedUrl) { play(cachedUrl); return; }
-          if (loading) return;
-          const link = navigator.connection;
-          // The original streams average 7.2 Mbps in landscape and 2.1 Mbps in portrait.
-          if (wall.getAttribute('src') === film || (!link?.saveData && link?.downlink >= (portrait.matches ? 3 : 9))) {
-            play(film);
+        function checkBuffer() {
+          if (!wall.paused || !wall.buffered.length || !Number.isFinite(wall.duration)) return;
+          if (fullyBuffered()) { play(); return; }
+          // Estimate how long the remaining download needs from this request's progress.
+          // Wait for enough headroom to finish the first loop on a variable connection.
+          const now = performance.now();
+          for (let i = 0; i < wall.buffered.length; i++) {
+            const start = wall.buffered.start(i), end = wall.buffered.end(i);
+            if (start > wall.currentTime + .05 || end < wall.currentTime + .5) continue;
+            // A return visit may deliver a cached prefix instantly. Measure only new progress.
+            if (!firstSample || firstSample.start !== start || end < firstSample.end) {
+              firstSample = { start, end, time: now };
+              return;
+            }
+            const elapsed = (now - firstSample.time) / 1000;
+            if (elapsed < .35 || end <= firstSample.end) return;
+            const downloadLeft = (wall.duration - end) * elapsed / (end - firstSample.end);
+            if (downloadLeft * 1.35 + .35 <= wall.duration - wall.currentTime) play();
             return;
           }
-          // On a slow or unmeasured link, keep the poster visible until the entire
-          // short loop is local. A return visit to the cover can reuse the same bytes.
-          const request = new AbortController();
-          setLoading(request);
-          try {
-            const response = await fetch(film, { signal: request.signal });
-            if (!response.ok) throw new Error('Video wall unavailable');
-            const clip = await response.blob();
-            if (request.signal.aborted) return;
-            cachedUrl = URL.createObjectURL(clip);
-            play(cachedUrl);
-          } catch {
-            // Keep the cover readable. Re-entering the cover retries the request.
-          } finally {
-            if (loading === request) setLoading(null);
-          }
         }
 
+        function update() {
+          if (!visible || document.hidden) { pauseCover(); return; }
+          if (!poster.hasAttribute('src')) {
+            cover.querySelector('source').srcset = wall.dataset.portrait + '.webp';
+            poster.src = wall.dataset.landscape + '.webp';
+          }
+          if (reduced.matches) { pauseCover(); return; }
+          const film = (portrait.matches ? wall.dataset.portrait : wall.dataset.landscape) + '.mp4?v=crf25';
+          if (wall.getAttribute('src') === film) { checkBuffer(); return; }
+          pauseCover();
+          firstSample = null;
+          wall.preload = 'auto';
+          wall.src = film;
+          // Some mobile browsers defer media requests until play() even with preload=auto.
+          nativeStartTimer = setTimeout(() => {
+            if (wall.networkState !== wall.NETWORK_LOADING) play();
+          }, 1600);
+        }
+
+        wall.addEventListener('progress', checkBuffer);
+        wall.addEventListener('canplay', checkBuffer);
+        wall.addEventListener('suspend', () => {
+          if (wall.readyState >= HTMLMediaElement.HAVE_METADATA) play();
+        });
         wall.addEventListener('loadedmetadata', () => {
           if (playhead > 0 && playhead < wall.duration) wall.currentTime = playhead;
         });

@@ -48,7 +48,6 @@ function foregroundNeedsNetwork() {
   const method = document.getElementById('method');
   if (method && method.getBoundingClientRect().top <= window.innerHeight + 120) return true;
   return Array.from(document.querySelectorAll<HTMLVideoElement>('video')).some(video => {
-    if (video.hasAttribute('data-downloading')) return true;
     if (video.error) return false;
     if (!video.hasAttribute('src')) return video.classList.contains('attention-film');
     if (video.src.startsWith('blob:')) return false;
@@ -158,7 +157,7 @@ export function useDemoPreload(attention: readonly string[], optionalVideos: rea
     const interactions = ['pointerdown', 'keydown', 'scroll'];
     for (const event of interactions) document.addEventListener(event, yieldToInteraction, { capture: true, passive: true });
     const events = ['loadstart', 'waiting', 'seeking', 'progress', 'suspend', 'canplay', 'playing', 'pause',
-      'emptied', 'visibilitychange', 'eponax:drive-traffic', 'eponax:cover-traffic', 'eponax:drive-cache', 'eponax:media-released'];
+      'emptied', 'visibilitychange', 'eponax:drive-traffic', 'eponax:drive-cache', 'eponax:media-released'];
     for (const event of events) document.addEventListener(event, schedule, true);
     schedule();
     return () => {

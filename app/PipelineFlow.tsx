@@ -4,11 +4,13 @@ import art from './pipeline-art.json';
 export const paperWidth = 1227;
 export const paperHeight = 505.5;
 
+export const plannerRegion = { id: 'planner', label: 'Trace the five TrajLoop updates', x: 860, y: 119, w: 365, h: 378 } as const;
+
 export const flowRegions = [
   { id: 'inputs', label: 'Trace camera and navigation encoding', x: 13, y: 260, w: 838, h: 232 },
   { id: 'backbone', label: 'Trace the backbone and output tokens', x: 15, y: 213, w: 870, h: 43 },
   { id: 'supervision', label: 'Trace the three training heads', x: 13, y: 4, w: 840, h: 204 },
-  { id: 'planner', label: 'Trace the five TrajLoop updates', x: 860, y: 119, w: 365, h: 378 },
+  plannerRegion,
   { id: 'trajectory', label: 'Trace trajectory decoding', x: 890, y: 4, w: 336, h: 114 },
 ] as const;
 

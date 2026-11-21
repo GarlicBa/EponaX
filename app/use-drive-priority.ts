@@ -33,11 +33,10 @@ export function useDrivePriority(section: RefObject<HTMLElement | null>, groupCo
     const poster = document.querySelector<HTMLImageElement>('.hero-poster')!;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
     function checkCover() {
-      // Blob URLs already contain the complete loop. For streamed MP4s, use
-      // actual buffered ranges so speculative drives never delay the first loop.
+      // Wait for the entire cover loop before warming the default drives.
       const complete = wall.buffered.length && wall.buffered.start(0) < .1
         && wall.buffered.end(0) >= wall.duration - .05;
-      const playingCover = wall.dataset.ready === 'true' && (complete || wall.currentSrc.startsWith('blob:'));
+      const playingCover = wall.dataset.ready === 'true' && complete;
       if (playingCover || (reduced.matches && poster.complete && poster.naturalWidth)) setWallReady(true);
     }
     for (const event of ['playing', 'progress', 'canplaythrough']) wall.addEventListener(event, checkCover);

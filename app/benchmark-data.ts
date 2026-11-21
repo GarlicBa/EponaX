@@ -27,7 +27,7 @@ export const v1: NavtestRow[] = [
 ];
 
 export const v2: NavtestRow[] = [
-  {"name": "Human", "rl": null, "scores": [100.0, 100.0, 99.8, 100.0, 87.4, 100.0, 100.0, 98.1, 90.1, 94.5], "bold": []},
+  {"name": "Human", "rl": null, "scores": [100.0, 100.0, 99.8, 100.0, 97.8, 100.0, 100.0, 98.1, 90.1, 97.9], "bold": []},
   {"name": "TransFuser", "rl": false, "scores": [96.9, 89.9, 97.8, 99.7, 87.1, 95.4, 92.7, 98.3, 87.2, 84.0], "bold": []},
   {"name": "Epona", "rl": false, "scores": [97.9, 95.2, 99.4, 99.8, 86.5, 97.1, 96.5, 98.3, 70.4, 85.2], "bold": []},
   {"name": "DriveVLA-W0", "rl": false, "scores": [98.4, 95.2, 99.4, 99.9, 86.6, 97.9, 97.8, 98.3, 82.7, 86.9], "bold": [3]},
