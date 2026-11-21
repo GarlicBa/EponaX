@@ -4,7 +4,7 @@ import { Icon } from './Icons';
 import { asset, clock, type Scene } from './demo-utils';
 import { useNearby } from './web-media';
 import { useDrivePriority } from './use-drive-priority';
-import type { DriveBandwidth } from './use-attention-preload';
+import type { DriveBandwidth } from './use-demo-preload';
 import manifest from './demo-manifest.json';
 
 const scenesById = new Map((manifest as Scene[]).map(scene => [scene.id, scene]));
@@ -37,6 +37,10 @@ const groups = [
   recordingCount: pages.flat().length,
   pages: pages.map(ids => ids.map(sceneId => scenesById.get(sceneId)!)),
 }));
+
+export const firstPageDriveVideos = groups.flatMap(group => group.pages[0].slice(1).map(scene => scene.video));
+
+export const laterDriveVideos = groups.flatMap(group => group.pages.slice(1).flat().map(scene => scene.video));
 
 function DriveRow({ group, index, current, next, turn, inIntro, retained, prefer, reportBuffer, finishDefault }: ReturnType<typeof useDrivePriority> & {
   group: typeof groups[number]; index: number;

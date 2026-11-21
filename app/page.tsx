@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { DriveBandwidth } from './use-attention-preload';
-import { DriveLibrary } from './DriveLibrary';
-import { AttentionStudy } from './AttentionStudy';
+import type { DriveBandwidth } from './use-demo-preload';
+import { DriveLibrary, firstPageDriveVideos, laterDriveVideos } from './DriveLibrary';
+import { AttentionStudy, otherAttentionVideos } from './AttentionStudy';
 import { Architecture } from './PaperFigures';
 import { RoadAtlas } from './RoadAtlas';
 import { ResearchResults } from './ResearchResults';
 import { asset } from './demo-utils';
 import { affiliations } from './publication';
+
+const optionalVideos = [...firstPageDriveVideos, ...otherAttentionVideos, ...laterDriveVideos];
 
 const chapters = [
   ['drive', 'Drives'], ['attention', 'Attention'], ['method', 'Architecture'],
@@ -88,7 +90,7 @@ export default function Home() {
       <nav aria-label="Main navigation">{chapters.map(([id,name]) =>
         <a key={id} href={'#' + id} aria-current={active === id ? 'location' : undefined}><span>{name}</span></a>)}</nav>
     </div></header>
-    <main><DriveLibrary onBandwidthChange={setDriveBandwidth}/><AttentionStudy budget={driveBandwidth}/><Architecture/><RoadAtlas/><ResearchResults/></main>
+    <main><DriveLibrary onBandwidthChange={setDriveBandwidth}/><AttentionStudy budget={driveBandwidth} optionalVideos={optionalVideos}/><Architecture/><RoadAtlas/><ResearchResults/></main>
     <footer className="story-footer"><div className="story-wrap">
       <img className="footer-company" src={asset('horizon-robotics.png')} alt={affiliations[1]} width="1232" height="402" loading="lazy"/>
       <a href="#top" aria-label="Back to EponaX"><img className="footer-project" src={asset('eponax-paper-mark.png')} alt="EponaX" width="1456" height="289"/></a>

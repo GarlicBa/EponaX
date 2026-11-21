@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { asset } from './demo-utils';
+import { hasCachedVideo, readCachedVideo } from './video-cache';
 
 export function useNearby(ref: RefObject<HTMLElement | null>) {
   const [near, setNear] = useState(false);
@@ -43,6 +44,26 @@ export function bufferedUntil(video: HTMLVideoElement) {
   return video.currentTime;
 }
 
+export function attachVideoSource(video: HTMLVideoElement, path: string, preloaded?: string, onAttach?: () => void) {
+  let attached = true;
+  let localUrl: string | undefined;
+  if (!preloaded && hasCachedVideo(path)) {
+    void readCachedVideo(path).then(file => {
+      if (!attached) return;
+      if (file) localUrl = URL.createObjectURL(file);
+      video.src = localUrl ?? asset(path);
+      onAttach?.();
+    });
+  } else {
+    video.src = preloaded ?? asset(path);
+    onAttach?.();
+  }
+  return () => {
+    attached = false;
+    if (localUrl) URL.revokeObjectURL(localUrl);
+  };
+}
+
 // Detaching the source cancels the native range request as well as decoding.
 // Restore the playhead on return so scrolling away doesn't restart a scene.
 export function useVideoSource(ref: RefObject<HTMLVideoElement | null>, path: string, active: boolean, retry = 0) {
@@ -54,13 +75,14 @@ export function useVideoSource(ref: RefObject<HTMLVideoElement | null>, path: st
       if (resume.current > 0 && resume.current < video.duration) video.currentTime = resume.current;
     };
     video.addEventListener('loadedmetadata', restore);
-    video.src = asset(path);
+    const releaseSource = attachVideoSource(video, path);
     return () => {
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) resume.current = video.currentTime;
       video.removeEventListener('loadedmetadata', restore);
       video.pause();
       video.removeAttribute('src');
       video.load();
+      releaseSource();
     };
   }, [ref, path, active, retry]);
 }

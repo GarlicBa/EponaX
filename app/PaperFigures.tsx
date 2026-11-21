@@ -1,5 +1,6 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useNearby } from './web-media';
+import { chapterAsset } from './chapter-assets';
 import { asset } from './demo-utils';
 import { InferenceExplainer } from './InferenceExplainer';
 
@@ -48,7 +49,7 @@ function ModuleDetails() {
         <figure className="module-detail">
           <a className="module-image" href={asset('research/' + module.file + '.webp')} target="_blank" rel="noreferrer"
             aria-label={'Open the full-size ' + module.title + ' figure'}>
-            <img src={nearby ? asset('research/' + module.file + '.webp') : undefined}
+            <img src={nearby ? chapterAsset('research/' + module.file + '.webp') : undefined}
               width={module.width} height={module.height} alt={module.title + ' diagram from the EponaX paper'}/>
           </a>
           <figcaption>{module.text}</figcaption>

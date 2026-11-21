@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { chapterAsset, roadRoutes, roadBasemap } from './chapter-assets';
 import { asset } from './demo-utils';
 import { useNearby } from './web-media';
 import { Icon } from './Icons';
@@ -31,7 +32,7 @@ function RouteMap({ routes, active, select }: { routes: MapRoute[]; active: numb
   return <div className="road-map-frame">
     <svg className="route-map" viewBox={`0 0 ${viewport.width} ${viewport.height}`} preserveAspectRatio="xMidYMid slice"
       role="img" aria-label={`Street map of Pudong, Shanghai, with four test routes. ${routes[active]?.id ?? 'R1'} is highlighted.`}>
-      <image href={asset('research/pudong-streets.webp')} width={viewport.width} height={viewport.height}/>
+      <image href={chapterAsset(roadBasemap)} width={viewport.width} height={viewport.height}/>
       {routes.map((route, i) => {
         const selected = i === active;
         const [x, y] = route.start;
@@ -69,7 +70,7 @@ export function RoadAtlas() {
   useEffect(() => {
     if (!nearby) return;
     const controller = new AbortController();
-    fetch(asset('demo/routes.json'), { signal: controller.signal })
+    fetch(chapterAsset(roadRoutes), { signal: controller.signal })
       .then(response => { if (!response.ok) throw new Error(); return response.json(); })
       .then((data: Route[]) => setRoutes(data.map(prepareRoute)))
       .catch(() => { if (!controller.signal.aborted) setFailed(true); });

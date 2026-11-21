@@ -1,4 +1,4 @@
-import type { DriveBandwidth } from './use-attention-preload';
+import type { DriveBandwidth } from './use-demo-preload';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 
 // While the reader is on the cover, prime the three default replays in order.

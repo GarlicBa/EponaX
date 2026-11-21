@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { chapterAsset, pipelineAtlas, pipelineStill } from './chapter-assets';
 import { asset, useReducedMotion } from './demo-utils';
 import { feedbackDuration, flowRegions, paperWidth, paperHeight, PipelineFlow, type FlowRegion } from './PipelineFlow';
 import art from './pipeline-art.json';
@@ -57,15 +58,15 @@ export function InferenceExplainer() {
   const still = finished || reduced;
   return <figure className="pipeline-figure">
     <div ref={board} className="pipeline-board" data-complete={still}>
-      <a className="pipeline-original-link" href={asset('research/framework.webp')} target="_blank" rel="noreferrer" aria-label="Open the full-size pipeline figure">
-        <img className="pipeline-original" src={nearby ? asset('research/framework.webp') : undefined} width={art.width} height={art.height}
+      <a className="pipeline-original-link" href={asset(pipelineStill)} target="_blank" rel="noreferrer" aria-label="Open the full-size pipeline figure">
+        <img className="pipeline-original" src={nearby ? chapterAsset(pipelineStill) : undefined} width={art.width} height={art.height}
           alt="EponaX architecture from the paper. Camera history and navigation enter the shared backbone from below. Future RGB, depth and semantic supervision are above. On the right, TrajLoop refines the trajectory latents and the frozen TrajAE decoder produces the future trajectory."
           loading="lazy" onLoad={() => setOriginalReady(true)} />
       </a>
       {nearby && !reduced && (!finished || !originalReady) && <svg className="pipeline-reveal" viewBox={'0 0 ' + art.width + ' ' + art.height}
         aria-hidden="true" data-playing={!finished && playing && atlasReady}>
         <defs>
-          <image id={atlasId} href={asset('research/framework-reveal.webp?v=' + art.atlasVersion)} width={art.atlasWidth} height={art.atlasHeight}
+          <image id={atlasId} href={chapterAsset(pipelineAtlas)} width={art.atlasWidth} height={art.atlasHeight}
             onLoad={() => setAtlasReady(true)} onError={() => setFinished(true)} />
         </defs>
         {art.modules.map(({ name, start, x, y, w, h, sx, sy }) =>

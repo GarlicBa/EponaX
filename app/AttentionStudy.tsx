@@ -2,8 +2,8 @@ import { createContext, useContext, useCallback, useEffect, useLayoutEffect, use
 import type { CSSProperties, PointerEvent, RefObject } from 'react';
 import recordings from './demo-manifest.json';
 import { asset, useReducedMotion, useVisible } from './demo-utils';
-import { useNearby } from './web-media';
-import { useAttentionPreload, type DriveBandwidth } from './use-attention-preload';
+import { attachVideoSource, useNearby } from './web-media';
+import { useDemoPreload, type DriveBandwidth } from './use-demo-preload';
 import { queueAttentionStart } from './attention-starts';
 import { Icon } from './Icons';
 
@@ -26,7 +26,9 @@ const groups: ScenarioGroup[] = [
     { label: 'Open and narrow streets', ids: ['city_13', 'night_15'] },
   ] },
 ];
-const defaultIds = groups.flatMap(group => group.pairs[0].ids);
+const defaultVideos = groups.flatMap(group => group.pairs[0].ids.map(id => `attention/${id}.mp4`));
+export const otherAttentionVideos = groups.flatMap(group =>
+  group.pairs.slice(1).flatMap(pair => pair.ids.map(id => `attention/${id}.mp4`)));
 const PreloadedClips = createContext<ReadonlyMap<string, string>>(new Map());
 const byId = new Map(recordings.map(scene => [scene.id, scene]));
 const cameras = ['Front left', 'Front', 'Front right', 'Rear left', 'Rear', 'Rear right'];
@@ -73,6 +75,7 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
   const clips = useContext(PreloadedClips);
   const ref = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
+  const [attached, setAttached] = useState(false);
   const [granted, setGranted] = useState(false);
   const release = useRef<(() => void) | null>(null);
   useEffect(() => {
@@ -83,17 +86,20 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
   useEffect(() => {
     if (!granted) return;
     const video = ref.current!;
-    video.src = clips.get(id) ?? asset('attention/' + id + '.mp4');
+    const path = `attention/${id}.mp4`;
+    const releaseSource = attachVideoSource(video, path, clips.get(path), () => setAttached(true));
     return () => {
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) resumeAt.current = video.currentTime;
       video.pause();
       video.removeAttribute('src');
       video.load();
+      releaseSource();
+      document.dispatchEvent(new Event('eponax:media-released'));
     };
   }, [clips, granted, id, resumeAt]);
   useEffect(() => {
     const video = ref.current!;
-    if (!granted) return;
+    if (!attached) return;
     let active = true;
     if (playing) {
       video.play().catch((error: DOMException) => {
@@ -104,7 +110,7 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
       });
     } else video.pause();
     return () => { active = false; };
-  }, [granted, id, playing, onBlocked, onError]);
+  }, [attached, id, playing, onBlocked, onError]);
 
   function allowNextStart() {
     const video = ref.current;
@@ -252,10 +258,10 @@ function AttentionRow({ group, ...playback }: Omit<GalleryPlayback, 'nearby' | '
   </section>;
 }
 
-export function AttentionStudy({ budget }: { budget: DriveBandwidth }) {
+export function AttentionStudy({ budget, optionalVideos }: { budget: DriveBandwidth; optionalVideos: readonly string[] }) {
   const section = useRef<HTMLElement>(null);
   const inView = useVisible(section);
-  const clips = useAttentionPreload(defaultIds, budget, inView);
+  const clips = useDemoPreload(defaultVideos, optionalVideos, budget, inView);
   const [fullscreenElement, setFullscreenElement] = useState(document.fullscreenElement);
   const reduced = useReducedMotion();
   useEffect(() => {
