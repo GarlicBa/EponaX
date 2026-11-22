@@ -5,6 +5,7 @@ import { asset, useReducedMotion, useVisible } from './demo-utils';
 import { attachVideoSource, useNearby } from './web-media';
 import { useDemoPreload, type DriveBandwidth } from './use-demo-preload';
 import { attentionHeadUrl } from './attention-prefix';
+import { useFullscreenAttention } from './use-fullscreen-attention';
 import { queueAttentionStart } from './attention-starts';
 import { Icon } from './Icons';
 
@@ -68,14 +69,17 @@ function RgbStrip({ video, split, playing }: { video: HTMLVideoElement; split: n
 }
 
 type ReplayProps = {
-  id: string; split: number; playing: boolean; preferred: boolean; resumeAt: RefObject<number>;
+  id: string; split: number; playing: boolean; expanded: boolean; preferred: boolean; resumeAt: RefObject<number>;
   onBlocked: () => void; onError: () => void;
 };
 
-function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, onError }: ReplayProps) {
+function AttentionVideo({ id, split, playing, expanded, preferred, resumeAt, onBlocked, onError }: ReplayProps) {
   const clips = useContext(PreloadedClips);
   const ref = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
+  const hd = useRef<HTMLVideoElement>(null);
+  const hdActive = useFullscreenAttention(ref, hd, id, expanded && ready, playing);
+  const displayed = hdActive ? hd.current : ref.current;
   const [attached, setAttached] = useState(false);
   const [granted, setGranted] = useState(false);
   const release = useRef<(() => void) | null>(null);
@@ -102,7 +106,7 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
     const video = ref.current!;
     if (!attached) return;
     let active = true;
-    if (playing) {
+    if (playing && !hdActive) {
       video.play().catch((error: DOMException) => {
         if (!active || error.name === 'AbortError') return;
         release.current?.();
@@ -111,7 +115,7 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
       });
     } else video.pause();
     return () => { active = false; };
-  }, [attached, id, playing, onBlocked, onError]);
+  }, [attached, id, playing, hdActive, onBlocked, onError]);
 
   function allowNextStart() {
     const video = ref.current;
@@ -141,8 +145,10 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
       }}
       onLoadedData={showFrame} onPlaying={showFrame} onProgress={allowNextStart}
       onError={e => { release.current?.(); if (e.currentTarget.hasAttribute('src')) onError(); }} />
-    {ready && split > 0 && split < 100 && ref.current &&
-      <RgbStrip video={ref.current} split={split} playing={playing}/>}
+    {expanded && <video ref={hd} className="attention-film" muted loop playsInline preload="auto" disablePictureInPicture
+      aria-hidden="true" data-ready={hdActive} data-rgb={split === 100}/>}
+    {ready && split > 0 && split < 100 && displayed &&
+      <RgbStrip video={displayed} split={split} playing={playing}/>}
   </>;
 }
 
@@ -174,8 +180,8 @@ function AttentionCard({ scene, split, setSplit, preferred, nearby, reduced, ful
     <div className="attention-stage" ref={stage} style={{ '--split': split + '%' } as CSSProperties}>
       <img className="attention-poster" src={poster} alt="" decoding="async" />
       {split > 0 && <div className="attention-rgb-poster" aria-hidden="true"><img className="attention-poster" src={poster} alt="" decoding="async"/></div>}
-      {visible && !failed && (!reduced || manualPlay !== null) &&
-        <AttentionVideo id={scene.id} split={split} preferred={preferred} playing={playing} resumeAt={resumeAt} onBlocked={onBlocked} onError={onError}/>}
+      {visible && !failed && (!reduced || manualPlay !== null || expanded) &&
+        <AttentionVideo id={scene.id} split={split} preferred={preferred} expanded={expanded} playing={playing} resumeAt={resumeAt} onBlocked={onBlocked} onError={onError}/>}
       <div className="attention-cameras" aria-hidden="true">
         {cameras.map(name => <span key={name}><i>{name}</i></span>)}
       </div>

@@ -48,7 +48,7 @@ function retainedDrive(video: HTMLVideoElement) {
 }
 
 function foregroundNeedsNetwork() {
-  if (document.hidden || pendingDriveRequests) return true;
+  if (document.hidden || pendingDriveRequests || document.fullscreenElement?.matches('.attention-card')) return true;
   // Chapter images and route data keep priority at the Attention/Architecture boundary.
   const method = document.getElementById('method');
   if (method && method.getBoundingClientRect().top <= window.innerHeight + 120) return true;
@@ -167,7 +167,7 @@ export function useDemoPreload(attention: readonly string[], optionalVideos: rea
     const interactions = ['pointerdown', 'keydown', 'scroll'];
     for (const event of interactions) document.addEventListener(event, yieldToInteraction, { capture: true, passive: true });
     const events = ['loadstart', 'waiting', 'seeking', 'progress', 'suspend', 'canplay', 'playing', 'pause',
-      'emptied', 'visibilitychange', 'eponax:drive-traffic', 'eponax:drive-cache', 'eponax:media-released'];
+      'emptied', 'visibilitychange', 'fullscreenchange', 'eponax:drive-traffic', 'eponax:drive-cache', 'eponax:media-released'];
     for (const event of events) document.addEventListener(event, schedule, true);
     schedule();
     return () => {
