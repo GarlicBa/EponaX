@@ -17,6 +17,10 @@ export const chapterPaths = [
 const warmed = new Map<string, string>();
 export const chapterAsset = (path: string) => warmed.get(path) ?? asset(path);
 export const hasChapterAsset = (path: string) => warmed.has(path);
+// Images already held by the mounted Pipeline can keep using their native URL.
+export function noteLoadedChapterImage(path: string) {
+  if (!warmed.has(path)) warmed.set(path, asset(path));
+}
 export async function warmChapterAsset(path: string, signal: AbortSignal) {
   const response = await fetch(asset(path), { priority: 'low', signal });
   if (!response.ok) throw new Error('Chapter asset unavailable');

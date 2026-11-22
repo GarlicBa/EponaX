@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { attentionHeadBytes, enableAttentionWorker, listenForAttentionHeads, type PartialClip } from './attention-prefix';
 import { chapterPaths, hasChapterAsset, warmChapterAsset } from './chapter-assets';
 import { asset } from './demo-utils';
 import { canCacheVideos, checkVideoCache, fileValidator, hasCachedVideo, storeVideo } from './video-cache';
@@ -6,13 +7,12 @@ import { bufferedUntil, pendingDriveRequests } from './web-media';
 
 export type DriveBandwidth = 'busy' | 'idle' | 'outside';
 
-type PartialClip = { parts: Blob[]; size: number; validator: string | null };
 const partSize = 512 * 1024;
 
 // Retain finished ranges when a foreground player needs the connection.
 // If the host ignores Range or the file changed, use its full replacement.
-async function fetchPart(path: string, clip: PartialClip, signal: AbortSignal) {
-  const headers = new Headers({ Range: `bytes=${clip.size}-${clip.size + partSize - 1}` });
+async function fetchPart(path: string, clip: PartialClip, signal: AbortSignal, bytes = partSize) {
+  const headers = new Headers({ Range: `bytes=${clip.size}-${clip.size + bytes - 1}` });
   if (clip.size && clip.validator) headers.set('If-Range', clip.validator);
   const response = await fetch(asset(path), { headers, priority: 'low', signal });
   if (!response.ok) throw new Error('Video preload unavailable');
@@ -26,10 +26,15 @@ async function fetchPart(path: string, clip: PartialClip, signal: AbortSignal) {
   if (!range || Number(range[1]) !== clip.size || Number(range[2]) >= Number(range[3])) {
     throw new Error('Invalid video range');
   }
+  const validator = fileValidator(response.headers);
+  if (clip.size && (Number(range[3]) !== clip.total || validator !== clip.validator)) {
+    throw new Error('Video changed during preload');
+  }
   const part = await response.blob();
   if (part.size !== Number(range[2]) + 1 - clip.size || !part.size) throw new Error('Incomplete video range');
   if (signal.aborted) return;
-  clip.validator = fileValidator(response.headers);
+  clip.validator = validator;
+  clip.total = Number(range[3]);
   clip.parts.push(part);
   clip.size += part.size;
   if (clip.size === Number(range[3])) return new Blob(clip.parts, { type: 'video/mp4' });
@@ -65,6 +70,7 @@ export function useDemoPreload(attention: readonly string[], optionalVideos: rea
   const writing = useRef(false);
   const partials = useRef(new Map<string, PartialClip>());
   const unlocked = useRef(false);
+  useEffect(() => listenForAttentionHeads(partials.current), []);
   useEffect(() => {
     const cache = urls.current;
     return () => { for (const url of cache.values()) URL.revokeObjectURL(url); cache.clear(); };
@@ -98,14 +104,17 @@ export function useDemoPreload(attention: readonly string[], optionalVideos: rea
       const chapter = defaultsReady ? nextChapter() : undefined;
       const optional = defaultsReady && !chapter;
       if (optional && !canCacheVideos()) return;
-      const streaming = new Set(Array.from(document.querySelectorAll<HTMLVideoElement>('video[src]'), video => video.src));
+      const streaming = new Set(Array.from(document.querySelectorAll<HTMLVideoElement>('video[src]'), video => video.src.split('?')[0]));
       const paths = optional ? optionalVideos : attention;
-      const path = chapter ?? paths.find(path => !failed.has(path) && !urls.current.has(path) && !hasCachedVideo(path) &&
+      const eligible = paths.filter(path => !failed.has(path) && !urls.current.has(path) && !hasCachedVideo(path) &&
         !streaming.has(new URL(asset(path), document.baseURI).href));
+      const head = defaultsReady ? undefined : eligible.find(path =>
+        (partials.current.get(path)?.size ?? 0) < attentionHeadBytes[path]);
+      const path = chapter ?? head ?? eligible[0];
       if (!path) return;
       const controller = new AbortController();
       request = controller;
-      const clip = partials.current.get(path) ?? { parts: [], size: 0, validator: null };
+      const clip = partials.current.get(path) ?? { parts: [], size: 0, total: 0, validator: null };
       try {
         if (chapter) {
           await warmChapterAsset(chapter, controller.signal);
@@ -118,7 +127,8 @@ export function useDemoPreload(attention: readonly string[], optionalVideos: rea
           if (hasCachedVideo(path)) return;
         }
         partials.current.set(path, clip);
-        const file = await fetchPart(path, clip, controller.signal);
+        if (head) enableAttentionWorker();
+        const file = await fetchPart(path, clip, controller.signal, head ? attentionHeadBytes[path] - clip.size : partSize);
         if (file && !controller.signal.aborted) {
           partials.current.delete(path);
           if (optional) {
@@ -168,5 +178,5 @@ export function useDemoPreload(attention: readonly string[], optionalVideos: rea
       for (const event of events) document.removeEventListener(event, schedule, true);
     };
   }, [attention, optionalVideos, budget, inView]);
-  return urls.current;
+  return { urls: urls.current, partials: partials.current };
 }

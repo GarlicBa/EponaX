@@ -1,17 +1,16 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { chapterAsset, pipelineAtlas, pipelineStill } from './chapter-assets';
+import { chapterAsset, noteLoadedChapterImage, pipelineAtlas, pipelineStill } from './chapter-assets';
 import { asset, useReducedMotion } from './demo-utils';
 import { feedbackDuration, flowRegions, plannerRegion, paperWidth, paperHeight, PipelineFlow, type FlowRegion } from './PipelineFlow';
 import { architectureModules } from './architecture-modules';
 import art from './pipeline-art.json';
-import { useNearby } from './web-media';
 import './pipeline.css';
 
-export function InferenceExplainer({ selection, select }: {
+export function InferenceExplainer({ nearby, selection, select }: {
+  nearby: boolean;
   selection: { index: number; revision: number }; select: (index: number) => void;
 }) {
   const board = useRef<HTMLDivElement>(null);
-  const nearby = useNearby(board);
   const atlasId = useId();
   const reduced = useReducedMotion();
   const [finished, setFinished] = useState(reduced);
@@ -70,13 +69,13 @@ export function InferenceExplainer({ selection, select }: {
       <a className="pipeline-original-link" href={asset(pipelineStill)} target="_blank" rel="noreferrer" aria-label="Open the full-size pipeline figure">
         <img className="pipeline-original" src={nearby ? chapterAsset(pipelineStill) : undefined} width={art.width} height={art.height}
           alt="EponaX architecture from the paper. Camera history and navigation enter the shared backbone from below. Future RGB, depth and semantic supervision are above. On the right, TrajLoop refines the trajectory latents and the frozen TrajAE decoder produces the future trajectory."
-          loading="lazy" onLoad={() => setOriginalReady(true)} />
+          onLoad={() => { noteLoadedChapterImage(pipelineStill); setOriginalReady(true); }} />
       </a>
       {nearby && !reduced && (!finished || !originalReady) && <svg className="pipeline-reveal" viewBox={'0 0 ' + art.width + ' ' + art.height}
         aria-hidden="true" data-playing={!finished && playing && atlasReady}>
         <defs>
           <image id={atlasId} href={chapterAsset(pipelineAtlas)} width={art.atlasWidth} height={art.atlasHeight}
-            onLoad={() => setAtlasReady(true)} onError={() => setFinished(true)} />
+            onLoad={() => { noteLoadedChapterImage(pipelineAtlas); setAtlasReady(true); }} onError={() => setFinished(true)} />
         </defs>
         {art.modules.map(({ name, start, x, y, w, h, sx, sy }) =>
           <g key={name} data-module={name} className="paper-module" style={{ animationDelay: start + 's' }}

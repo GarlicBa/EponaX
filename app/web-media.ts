@@ -44,29 +44,41 @@ export function bufferedUntil(video: HTMLVideoElement) {
   return video.currentTime;
 }
 
-export function attachVideoSource(video: HTMLVideoElement, path: string, preloaded?: string, onAttach?: () => void) {
-  let attached = true;
+export function attachVideoSource(video: HTMLVideoElement, path: string, preloaded?: string, onAttach?: () => void, checkDisk = false) {
   let localUrl: string | undefined;
-  if (!preloaded && hasCachedVideo(path)) {
-    void readCachedVideo(path).then(file => {
-      if (!attached) return;
-      if (file) localUrl = URL.createObjectURL(file);
-      video.src = localUrl ?? asset(path);
-      onAttach?.();
-    });
-  } else {
-    video.src = preloaded ?? asset(path);
+  const lookup = new AbortController();
+  let timer = 0;
+  let finishLookup: (() => void) | undefined;
+  function attach(url: string) {
+    video.src = url;
+    finishLookup?.();
     onAttach?.();
   }
+  if (!preloaded && (hasCachedVideo(path) || (checkDisk && 'caches' in window))) {
+    if (checkDisk) finishLookup = beginDriveRequest();
+    // A slow validation or unavailable disk must not hold up a selection.
+    timer = window.setTimeout(() => {
+      lookup.abort();
+      attach(asset(path));
+    }, 1200);
+    void readCachedVideo(path, lookup.signal).then(file => {
+      if (lookup.signal.aborted) return;
+      window.clearTimeout(timer);
+      if (file) localUrl = URL.createObjectURL(file);
+      attach(localUrl ?? asset(path));
+    });
+  } else attach(preloaded ?? asset(path));
   return () => {
-    attached = false;
+    window.clearTimeout(timer);
+    lookup.abort();
+    finishLookup?.();
     if (localUrl) URL.revokeObjectURL(localUrl);
   };
 }
 
 // Detaching the source cancels the native range request as well as decoding.
 // Restore the playhead on return so scrolling away doesn't restart a scene.
-export function useVideoSource(ref: RefObject<HTMLVideoElement | null>, path: string, active: boolean, retry = 0) {
+export function useVideoSource(ref: RefObject<HTMLVideoElement | null>, path: string, active: boolean, retry: number, checkDisk: boolean) {
   const resume = useRef(0);
   useEffect(() => {
     const video = ref.current;
@@ -75,7 +87,7 @@ export function useVideoSource(ref: RefObject<HTMLVideoElement | null>, path: st
       if (resume.current > 0 && resume.current < video.duration) video.currentTime = resume.current;
     };
     video.addEventListener('loadedmetadata', restore);
-    const releaseSource = attachVideoSource(video, path);
+    const releaseSource = attachVideoSource(video, path, undefined, undefined, checkDisk);
     return () => {
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) resume.current = video.currentTime;
       video.removeEventListener('loadedmetadata', restore);
@@ -84,5 +96,5 @@ export function useVideoSource(ref: RefObject<HTMLVideoElement | null>, path: st
       video.load();
       releaseSource();
     };
-  }, [ref, path, active, retry]);
+  }, [ref, path, active, retry, checkDisk]);
 }

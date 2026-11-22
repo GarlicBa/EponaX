@@ -1,13 +1,12 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { useNearby } from './web-media';
 import { architectureModules } from './architecture-modules';
-import { chapterAsset } from './chapter-assets';
+import { chapterAsset, noteLoadedChapterImage } from './chapter-assets';
 import { asset } from './demo-utils';
 import { InferenceExplainer } from './InferenceExplainer';
 
-function ModuleDetails({ active, select }: { active: number; select: (index: number) => void }) {
+function ModuleDetails({ nearby, active, select }: { nearby: boolean; active: number; select: (index: number) => void }) {
   const section = useRef<HTMLElement>(null);
-  const nearby = useNearby(section);
 
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const count = architectureModules.length;
@@ -47,7 +46,9 @@ function ModuleDetails({ active, select }: { active: number; select: (index: num
         {module.figures.map(figure => <figure key={figure.path} className="module-detail">
           <a className="module-image" href={asset(figure.path)} target="_blank" rel="noreferrer"
             aria-label={'Open full-size figure: ' + figure.alt}>
-            <img src={nearby && active === index ? chapterAsset(figure.path) : undefined}
+            <img src={nearby ? chapterAsset(figure.path) : undefined}
+              fetchPriority={active === index ? 'auto' : 'low'} decoding="async"
+              onLoad={() => noteLoadedChapterImage(figure.path)}
               width={figure.width} height={figure.height} alt={figure.alt}/>
           </a>
           <figcaption>{figure.caption}</figcaption>
@@ -58,6 +59,8 @@ function ModuleDetails({ active, select }: { active: number; select: (index: num
 }
 
 export function Architecture() {
+  const explorer = useRef<HTMLDivElement>(null);
+  const nearby = useNearby(explorer);
   const [selection, setSelection] = useState({ index: 0, revision: 0 });
   function select(index: number) {
     setSelection(previous => ({ index, revision: previous.revision + 1 }));
@@ -74,9 +77,9 @@ export function Architecture() {
         <h2 id="method-title">Planning from vision and navigation</h2>
         <p>Trained on nearly 35,000 hours of driving, EponaX combines six camera views with route guidance. TrajLoop draws on all 28 backbone layers to refine a trajectory over five steps.</p>
       </header>
-      <div className="architecture-explorer">
-        <InferenceExplainer selection={selection} select={selectFromDiagram}/>
-        <ModuleDetails active={selection.index} select={select}/>
+      <div ref={explorer} className="architecture-explorer">
+        <InferenceExplainer nearby={nearby} selection={selection} select={selectFromDiagram}/>
+        <ModuleDetails nearby={nearby} active={selection.index} select={select}/>
       </div>
       <p className="architecture-conclusion">Predicting future appearance, depth and semantics during training teaches the backbone how a scene may change. <strong>On the vehicle, EponaX uses that representation to update a six-second trajectory at 10 Hz.</strong></p>
     </div>

@@ -46,8 +46,8 @@ function TrajectoryOverlay({ points }: { points: [number, number][] }) {
   </svg>;
 }
 
-export function DrivingReplay({ scene, nearby, foreground, warm, prime, onPrimed, quickStart, onBuffer, onChoose }: {
-  scene: Scene; nearby: boolean; foreground: boolean; warm: boolean;
+export function DrivingReplay({ scene, nearby, checkDisk, foreground, warm, prime, onPrimed, quickStart, onBuffer, onChoose }: {
+  scene: Scene; nearby: boolean; checkDisk: boolean; foreground: boolean; warm: boolean;
   prime: boolean; onPrimed: () => void; quickStart: boolean;
   onBuffer: (enough: boolean) => void; onChoose: () => void;
 }) {
@@ -79,7 +79,7 @@ export function DrivingReplay({ scene, nearby, foreground, warm, prime, onPrimed
     [chunk, frame, localIndex]);
   const message = error || (entry?.failed ? 'This recording could not load. Try again.' : '');
   const canPlay = visible && foreground && !!frame && !message;
-  useVideoSource(videoRef, scene.video, prepare, retry);
+  useVideoSource(videoRef, scene.video, prepare, retry, checkDisk);
   const hasFrame = !!frame;
   useEffect(() => {
     if (!prime) return;
@@ -107,15 +107,18 @@ export function DrivingReplay({ scene, nearby, foreground, warm, prime, onPrimed
       video.play().catch(() => {});
     };
     const check = () => {
+      if (!video.hasAttribute('src')) return;
       if (quickStart || video.currentTime > 0 || bufferedUntil(video) >= Math.min(2, video.duration)) start();
     };
     // Some mobile browsers fetch only metadata until play() is called.
     const fallback = window.setTimeout(start, 3500);
     function stopWaiting() {
       window.clearTimeout(fallback);
+      video?.removeEventListener('loadstart', check);
       video?.removeEventListener('progress', check);
       video?.removeEventListener('canplay', check);
     }
+    video.addEventListener('loadstart', check);
     video.addEventListener('progress', check);
     video.addEventListener('canplay', check);
     check();

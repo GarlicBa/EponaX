@@ -108,7 +108,7 @@ function DriveRow({ group, index, current, next, turn, inIntro, retained, prefer
         </div>
       </div>
     </div>
-    <div className="drive-screen"><DrivingReplay key={selected.id} scene={selected} nearby={nearby}
+    <div className="drive-screen"><DrivingReplay key={selected.id} scene={selected} nearby={nearby} checkDisk={!isDefault}
       foreground={current === index} warm={next === index || (isDefault && index < retained)}
       prime={turn === index && isDefault} onPrimed={advance} quickStart={index === 0}
       onBuffer={onBuffer} onChoose={onChoose}/></div>

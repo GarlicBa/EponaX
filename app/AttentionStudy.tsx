@@ -4,6 +4,7 @@ import recordings from './demo-manifest.json';
 import { asset, useReducedMotion, useVisible } from './demo-utils';
 import { attachVideoSource, useNearby } from './web-media';
 import { useDemoPreload, type DriveBandwidth } from './use-demo-preload';
+import { attentionHeadUrl } from './attention-prefix';
 import { queueAttentionStart } from './attention-starts';
 import { Icon } from './Icons';
 
@@ -29,7 +30,7 @@ const groups: ScenarioGroup[] = [
 const defaultVideos = groups.flatMap(group => group.pairs[0].ids.map(id => `attention/${id}.mp4`));
 export const otherAttentionVideos = groups.flatMap(group =>
   group.pairs.slice(1).flatMap(pair => pair.ids.map(id => `attention/${id}.mp4`)));
-const PreloadedClips = createContext<ReadonlyMap<string, string>>(new Map());
+const PreloadedClips = createContext<ReturnType<typeof useDemoPreload>>({ urls: new Map(), partials: new Map() });
 const byId = new Map(recordings.map(scene => [scene.id, scene]));
 const cameras = ['Front left', 'Front', 'Front right', 'Rear left', 'Rear', 'Rear right'];
 
@@ -87,7 +88,7 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
     if (!granted) return;
     const video = ref.current!;
     const path = `attention/${id}.mp4`;
-    const releaseSource = attachVideoSource(video, path, clips.get(path), () => setAttached(true));
+    const releaseSource = attachVideoSource(video, path, clips.urls.get(path) ?? attentionHeadUrl(path, clips.partials), () => setAttached(true));
     return () => {
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) resumeAt.current = video.currentTime;
       video.pause();
@@ -96,7 +97,7 @@ function AttentionVideo({ id, split, playing, preferred, resumeAt, onBlocked, on
       releaseSource();
       document.dispatchEvent(new Event('eponax:media-released'));
     };
-  }, [clips, granted, id, resumeAt]);
+  }, [clips.urls, clips.partials, granted, id, resumeAt]);
   useEffect(() => {
     const video = ref.current!;
     if (!attached) return;
