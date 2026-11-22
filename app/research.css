@@ -201,6 +201,10 @@ html { scroll-padding-top: 61px; }
   .film-grid:has(.film-card:nth-child(5)) .film-image img {
     max-height: max(48px, calc(33.333cqh - 85px));
   }
+  /* Route guidance varies in height as lanes and turn instructions change. */
+  .drive-picker:has(#drive-list-route) { align-self: start; contain: none; }
+  #drive-list-route { container-type: normal; }
+  #drive-list-route .film-image img { max-height: none; }
 }
 @container (max-width: 725px) {
   .drive-screen .replay:not(:fullscreen) {

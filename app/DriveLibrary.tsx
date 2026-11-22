@@ -28,8 +28,8 @@ const groups = [
   {
     id: 'everyday', title: 'EponaX follows traffic, rounds bends and passes slower vehicles.',
     pages: [
-      ['highway_02', 'glare_02', 'city_05', 'night_05', 'highway_04', 'city_11'],
-      ['city_13', 'highway_01', 'night_15'],
+      ['city_13', 'glare_02', 'city_05', 'night_05', 'highway_04', 'city_11'],
+      ['highway_02', 'highway_01', 'night_15'],
     ],
   },
 ].map(({ id, title, pages }) => ({
