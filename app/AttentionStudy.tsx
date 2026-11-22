@@ -162,6 +162,8 @@ function AttentionCard({ scene, split, setSplit, preferred, nearby, reduced, ful
   const stage = useRef<HTMLDivElement>(null);
   const inView = useVisible(stage);
   const resumeAt = useRef(0);
+  const slider = useRef<HTMLInputElement>(null);
+  const gesture = useRef<{ id: number; x: number; y: number; dragging: boolean } | null>(null);
   const [manualPlay, setManualPlay] = useState<boolean | null>(null);
   const [failed, setFailed] = useState(false);
   const expanded = fullscreenElement !== null && fullscreenElement === card.current;
@@ -171,13 +173,42 @@ function AttentionCard({ scene, split, setSplit, preferred, nearby, reduced, ful
   const onError = useCallback(() => setFailed(true), []);
   const poster = nearby ? asset('attention/' + scene.id + '.webp') : undefined;
   const playbackLabel = failed ? 'Retry' : playing ? 'Pause' : 'Play';
-  function moveDivider(event: PointerEvent<HTMLInputElement>) {
+  function moveDivider(event: PointerEvent<HTMLDivElement>) {
     const { left, width } = event.currentTarget.getBoundingClientRect();
     setSplit(Math.max(0, Math.min(100, Math.round(100 * (event.clientX - left) / width))));
   }
 
   return <figure className="attention-card" ref={card} data-recording={scene.id} data-category={scene.category}>
-    <div className="attention-stage" ref={stage} style={{ '--split': split + '%' } as CSSProperties}>
+    <div className="attention-stage" ref={stage} style={{ '--split': split + '%' } as CSSProperties}
+      onPointerDown={e => {
+        if (!e.isPrimary || e.button !== 0) return;
+        const dragging = e.pointerType === 'mouse';
+        gesture.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dragging };
+        if (dragging) {
+          e.preventDefault();
+          slider.current?.focus({ preventScroll: true });
+          e.currentTarget.setPointerCapture(e.pointerId);
+          moveDivider(e);
+        }
+      }}
+      onPointerMove={e => {
+        const start = gesture.current;
+        if (!start || start.id !== e.pointerId) return;
+        if (!start.dragging) {
+          const dx = Math.abs(e.clientX - start.x), dy = Math.abs(e.clientY - start.y);
+          if (Math.max(dx, dy) < 8) return;
+          if (dy >= dx) { gesture.current = null; return; }
+          start.dragging = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }
+        moveDivider(e);
+      }}
+      onPointerUp={e => {
+        if (gesture.current?.id !== e.pointerId) return;
+        gesture.current = null;
+        moveDivider(e);
+      }}
+      onPointerCancel={e => { if (gesture.current?.id === e.pointerId) gesture.current = null; }}>
       <img className="attention-poster" src={poster} alt="" decoding="async" />
       {split > 0 && <div className="attention-rgb-poster" aria-hidden="true"><img className="attention-poster" src={poster} alt="" decoding="async"/></div>}
       {visible && !failed && (!reduced || manualPlay !== null || expanded) &&
@@ -191,19 +222,10 @@ function AttentionCard({ scene, split, setSplit, preferred, nearby, reduced, ful
           <path d="m6 3-4 4 4 4m6-8 4 4-4 4"/>
         </svg>
       </div>
-      <input className="attention-scrubber" type="range" min="0" max="100" step="1" value={split}
+      <input ref={slider} className="attention-scrubber" type="range" min="0" max="100" step="1" value={split}
         aria-label={'Compare camera footage and attention for ' + scene.title}
         aria-valuetext={split + '% camera footage, ' + (100 - split) + '% attention'}
-        onChange={e => setSplit(e.currentTarget.valueAsNumber)}
-        onPointerDown={e => {
-          if (!e.isPrimary || e.button !== 0) return;
-          e.preventDefault();
-          e.currentTarget.focus({ preventScroll: true });
-          e.currentTarget.setPointerCapture(e.pointerId);
-          moveDivider(e);
-        }}
-        onPointerMove={e => { if (e.isPrimary && e.currentTarget.hasPointerCapture(e.pointerId)) moveDivider(e); }}
-        onPointerUp={e => { if (e.isPrimary && e.currentTarget.hasPointerCapture(e.pointerId)) moveDivider(e); }} />
+        onChange={e => setSplit(e.currentTarget.valueAsNumber)} />
     </div>
     <figcaption className="attention-caption">
       <div className="attention-scene">
