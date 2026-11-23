@@ -196,17 +196,13 @@ html { scroll-padding-top: 61px; }
   .drive-catalogue { flex: 1; min-height: 0; container-type: size; display: flex; flex-direction: column; }
   .picker-tools { flex: none; min-height: 44px; border-bottom: 1px solid var(--rule); }
   .drive-catalogue .film-grid {
-    min-height: 0; align-content: start; overflow-y: auto; padding: 3px 3px 12px;
+    flex: 1; min-height: 0; align-content: start; overflow-y: auto; padding: 3px 3px 12px;
     scrollbar-width: thin;
   }
-  .film-grid:has(.film-card:nth-child(6)) { flex-grow: 1; align-content: space-between; }
+  .drive-catalogue .film-grid:has(.film-card:nth-child(6)) { align-content: space-between; }
   .film-grid:has(.film-card:nth-child(5)) .film-image {
     max-height: max(48px, calc(33.333cqh - 85px));
   }
-  /* Route guidance varies in height as lanes and turn instructions change. */
-  .drive-picker:has(#drive-list-route) { align-self: start; contain: none; }
-  #drive-list-route { container-type: normal; }
-  #drive-list-route .film-image { max-height: none; }
 }
 @container (max-width: 725px) {
   .drive-screen .replay:not(:fullscreen) {
@@ -356,7 +352,7 @@ details[open]>summary>span { transform:rotate(45deg); }
 .road-study .road-findings>div>span { color: var(--soft); font-size: .875rem; line-height: var(--reading-leading); }
 .road-study .road-findings strong { width: fit-content; font-size: min(2.5rem, 17.5cqi); font-weight: 550; white-space: nowrap; }
 .road-study .road-findings strong span { color: inherit; }
-.road-findings strong > .rate-denominator { font-size: .78em; }
+.road-findings strong > .rate-denominator { margin-inline-start: -.1em; font-size: .78em; word-spacing: -.08em; }
 .road-study .road-evaluation { border-color: #cbd6e8; }
 .road-study .route-visual { display:flex; flex-direction:column; background: #f1f5fc; }
 .road-map-frame { position:relative; height:clamp(208px,23vw,300px); overflow:hidden; }
