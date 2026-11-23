@@ -123,7 +123,7 @@ export function DriveLibrary({ onBandwidthChange }: { onBandwidthChange: (state:
     <div className="story-wrap">
       <header className="story-heading" data-reveal>
         <h2 id="drive-title">Driving in the wild</h2>
-        <p>EponaX replans at 10 Hz, predicting 60 waypoints over the next 6 seconds. The vehicle uses only the first 0.5 seconds of each trajectory for control. The remaining waypoints show its expected path as it follows navigation guidance, changes lanes, yields to pedestrians and stops at red lights. The shaded band shows the predicted path.</p>
+        <p>EponaX replans at 10 Hz, predicting 60 waypoints over the next 6 seconds. The onboard controller tracks a waypoint about 0.5 seconds ahead to account for system latency. The shaded band traces the remaining waypoints as EponaX follows its route, changes lanes, yields to pedestrians and stops at red lights.</p>
       </header>
       {groups.map((group, index) => <DriveRow key={group.id} group={group} index={index} {...priority}/>)}
     </div>

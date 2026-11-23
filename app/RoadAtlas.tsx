@@ -7,7 +7,7 @@ import { Icon } from './Icons';
 type Point = [number, number];
 type Route = {
   id: string; name: string; distance: number; laps: number;
-  trafficLights: number; interventions: number; points: Point[];
+  intersections: number; trafficLights: number; points: Point[];
 };
 type MapRoute = Route & { path: string; start: Point };
 const routeColors = ['var(--blue)', 'var(--violet)', '#277790', '#3d438b'];
@@ -80,10 +80,9 @@ export function RoadAtlas() {
 
   return <section ref={section} className="road-study story-section" id="roads" aria-labelledby="road-title">
     <div className="story-wrap">
-      <header className="story-heading road-intro" data-reveal>
-        <div><h2 id="road-title">Testing on Shanghai’s roads</h2>
-          <p>Day and night, rain and glare. Three laps on each route, with a safety driver recording interventions.</p></div>
-        <div className="distance-stat"><strong>240<span> km</span></strong><span>Approximate total test distance</span></div>
+      <header className="story-heading" data-reveal>
+        <h2 id="road-title">Testing on Shanghai’s roads</h2>
+        <p>Day and night, rain and glare. Three laps on each route, with a safety driver recording interventions.</p>
       </header>
       <div className="road-evaluation">
         <div className="route-visual">
@@ -102,10 +101,10 @@ export function RoadAtlas() {
             <dl>
               <div><dt>One loop</dt><dd>{route.distance.toFixed(2)}<span> km</span></dd></div>
               <div><dt>Evaluation laps</dt><dd>{route.laps}</dd></div>
-              <div><dt>Traffic-light encounters</dt><dd>{route.trafficLights}</dd></div>
-              <div><dt>Total driver interventions</dt><dd>{route.interventions}</dd></div>
+              <div><dt>Intersections encountered</dt><dd>{route.intersections}</dd></div>
+              <div><dt>Traffic lights encountered</dt><dd>{route.trafficLights}</dd></div>
             </dl>
-            <p>Counts cover all three laps. Route lengths are approximate.</p>
+            <p>Encounter counts cover all three laps. Loop distances are approximate.</p>
             <a className="road-detail-link" href={asset('research/road-' + route.id + '.webp')} target="_blank" rel="noreferrer">
               <Icon name="expand" size={14}/> View {route.id} street map
             </a>
@@ -113,12 +112,11 @@ export function RoadAtlas() {
         </div>
       </div>
       <div className="road-findings">
-        <div><strong>64</strong><span>Total interventions<br/>over all four routes</span></div>
-        <div><strong>3<span> / 60 km</span></strong><span>Safety-related interventions<br/>on average</span></div>
-        <div><strong>570</strong><span>Traffic-light encounters<br/>24 required intervention</span></div>
-        <div><strong>98<span>%</span></strong><span>Approximate navigation<br/>compliance</span></div>
+        <div><strong>240<span> km</span></strong><span>Approximate total test distance</span></div>
+        <div><strong>3–5 / <span className="rate-denominator">100 KM</span></strong><span>Safety-related interventions</span></div>
+        <div><strong>95.8<span>%</span></strong><span>Traffic-light success rate</span></div>
+        <div><strong>98.0<span>%</span></strong><span>Navigation compliance</span></div>
       </div>
-      <p className="results-footnote">Safety-related interventions include wide turns and other safety-related causes. About 80% of all interventions were rule-related.</p>
     </div>
   </section>;
 }

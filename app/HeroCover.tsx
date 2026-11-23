@@ -12,8 +12,9 @@ export function HeroCover() {
       <div className="publication-byline">
         <ul className="publication-authors" aria-label="Authors">
           {authors.map(({ name, homepage, affiliations: units }, index) => {
-            const leader = index === authors.length - 1 && name === 'Wei Yin';
-            const role = leader ? 'Project leader' : index < 8 ? 'Core contributor' : undefined;
+            const leader = name === 'Qian Zhang';
+            const contributor = index < 8 || name === 'Wei Yin';
+            const role = leader ? 'Project leader' : contributor ? 'Core contributor' : undefined;
             return <li key={name} aria-describedby={units.map(id => `affiliation-${id}`).join(' ')}>
               {homepage ? <a href={homepage} target="_blank" rel="noreferrer">{name}</a> : name}
               <sup className="affiliation-mark" aria-hidden="true">{units.join(',')}</sup>
