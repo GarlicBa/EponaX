@@ -190,6 +190,18 @@ html { scroll-padding-top: 61px; }
   .replay:fullscreen .drive-navigation { display: none; }
 }
 @media (min-width:1101px) {
+  /* Let the camera set the row height when lane guidance changes during replay. */
+  @container (width > 725px) {
+    .drive-screen .replay:not(:fullscreen) .drive-navigation {
+      contain: size; overflow-y: auto;
+    }
+    .drive-screen .replay:not(:fullscreen) .street-map {
+      min-height: 6rem;
+    }
+    .drive-screen .replay:not(:fullscreen) .street-map > svg {
+      position: absolute; inset: 0; height: 100%;
+    }
+  }
   .drive-picker {
     align-self: stretch; contain: size; display: flex; flex-direction: column;
   }
