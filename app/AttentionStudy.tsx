@@ -314,7 +314,7 @@ export function AttentionStudy({ budget, optionalVideos }: { budget: DriveBandwi
         <PreloadedClips.Provider value={clips}>{groups.map(group => <AttentionRow key={group.id} group={group}
           reduced={reduced} fullscreenElement={fullscreenElement}/>)}</PreloadedClips.Provider>
       </div>
-      <p className="attention-conclusion">EponaX pays close attention to key cues for trajectory planning, including obstacles, pedestrians, traffic lights and lane markings. <strong>We observe this attention pattern after scaling EponaX.</strong></p>
+      <p className="attention-conclusion">EponaX pays close attention to key cues for trajectory planning, including obstacles, pedestrians, traffic lights and lane markings. <strong>We see this attention pattern after scaling up both the driving dataset and the training compute budget.</strong></p>
     </div>
   </section>;
 }

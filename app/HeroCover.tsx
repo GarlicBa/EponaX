@@ -11,15 +11,13 @@ export function HeroCover() {
       </div>
       <div className="publication-byline">
         <ul className="publication-authors" aria-label="Authors">
-          {authors.map(({ name, homepage, affiliations: units }, index) => {
-            const leader = name === 'Qian Zhang';
-            const contributor = index < 8 || name === 'Wei Yin';
-            const role = leader ? 'Project leader' : contributor ? 'Core contributor' : undefined;
+          {authors.map(({ name, homepage, affiliations: units, role, coFirst }) => {
+            const leader = role === 'Project leader';
             return <li key={name} aria-describedby={units.map(id => `affiliation-${id}`).join(' ')}>
               {homepage ? <a href={homepage} target="_blank" rel="noreferrer">{name}</a> : name}
               <sup className="affiliation-mark" aria-hidden="true">{units.join(',')}</sup>
               {role && <sup className={leader ? 'role-mark leader-mark' : 'role-mark'} aria-label={role}>{leader ? '‡' : '*'}</sup>}
-              {index < 6 && <sup className="co-first-mark" aria-label="Co-first author">†</sup>}
+              {coFirst && <sup className="co-first-mark" aria-label="Co-first author">†</sup>}
             </li>;
           })}
         </ul>

@@ -51,7 +51,15 @@ function ModuleDetails({ nearby, active, select }: { nearby: boolean; active: nu
               onLoad={() => noteLoadedChapterImage(figure.path)}
               width={figure.width} height={figure.height} alt={figure.alt}/>
           </a>
-          <figcaption>{figure.caption}</figcaption>
+          <figcaption>
+            {'heading' in figure && <strong className="module-caption-title">{figure.heading}</strong>}
+            {Array.isArray(figure.caption)
+              ? figure.caption.map(paragraph => <p key={paragraph}>{paragraph}</p>)
+              : figure.caption}
+            {'paperUrl' in figure && <a className="module-paper-link" href={figure.paperUrl} target="_blank" rel="noreferrer">
+              More details in the paper <span aria-hidden="true">↗</span>
+            </a>}
+          </figcaption>
         </figure>)}
       </div>)}
     </div>
