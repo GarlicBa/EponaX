@@ -83,11 +83,21 @@ html { scroll-padding-top: 61px; }
 .film-card { align-self: start; min-width: 0; padding: 0; background: transparent; text-align: left; }
 .film-image { display: block; position: relative; aspect-ratio: 16/9; overflow: hidden; border-radius: 6px; background: #203043; }
 .film-image img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; }
+.film-image::after {
+  content: ""; position: absolute; inset: 0 0 auto; height: 3px; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, #80c3ff 30%, #c7adff 70%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .film-image::after { transition: opacity .18s ease-out; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .film-card:hover .film-image::after { opacity: .8; }
+}
+.film-card[aria-pressed=true] .film-image::after, .film-card:focus-visible .film-image::after { opacity: 1; }
 .film-check, .film-time { position: absolute; color: white; }
 .film-check { top: 5px; left: 5px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: var(--blue); }
 .film-time { bottom: 4px; right: 4px; padding: 2px 4px; border-radius: 3px; background: #112438d9; font: .64rem/1.25 var(--mono); }
 .film-title { display: block; margin-top: 6px; color: var(--text); font-size: .82rem; line-height: 1.3; font-weight: 550; }
-.film-card[aria-pressed=true] .film-image { outline: 2px solid var(--blue); outline-offset: 1px; }
 .film-card[aria-pressed=true] .film-title, .film-card:hover .film-title { color: var(--blue); }
 .browse-toggle { display: none; justify-content: center; align-items: center; gap: 7px; padding: 8px 12px; font-size: .81rem; font-weight: 550; }
 .browse-toggle:hover, .library-pagination button:not(:disabled):hover { border-color: var(--blue); color: var(--blue); }
