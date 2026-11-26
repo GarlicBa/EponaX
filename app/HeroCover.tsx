@@ -34,9 +34,8 @@ export function HeroCover() {
           <img src="./eponax-logo.png?v=2" width="32" height="32" alt=""/>{affiliations[1]}
         </p>
         <div className="publication-resources" aria-label="Publication resources">
-          {resources.map(({ label, href }) => href
-            ? <a key={label} href={href} target="_blank" rel="noreferrer">{label}</a>
-            : <span key={label} role="link" aria-disabled="true">{label}</span>)}
+          {resources.map(({ label, href, target }) =>
+            <a key={label} href={href} target={target} rel={target ? 'noreferrer' : undefined}>{label}</a>)}
         </div>
       </div>
     </div>

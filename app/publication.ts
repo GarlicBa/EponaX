@@ -36,7 +36,7 @@ export const authors: Author[] = [
   { name: 'Qian Zhang', affiliations: [1], role: 'Project leader', homepage: 'https://scholar.google.com/citations?user=pCY-bikAAAAJ&hl=zh-CN' },
 ];
 
-export const resources: { label: string; href?: string }[] = [
-  { label: 'Paper' },
-  { label: 'Hugging Face' },
+export const resources: { label: string; href: string; target?: '_blank' }[] = [
+  { label: 'Paper', href: './paper/EponaX_Tech_Report.pdf', target: '_blank' },
+  { label: 'Hugging Face', href: '#top' },
 ];
